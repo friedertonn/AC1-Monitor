@@ -1,0 +1,3258 @@
+; ************************************************************
+; *                                                          *
+; *  MONITOR 10/88 fuer den AC 1     Version vom 12.04.2021  *
+; *                                                          *
+; ************************************************************
+;
+; Aenderungen:
+;
+; Korrektur an der Originalversion 1988: 
+; - Beim Einbau einer Grafiktaste muss Adresse 02A9H 
+;   von FFH auf 21H geaendert werden
+;
+; Korrektur an der BWS-CPLD-Version 2011:
+; - Fehler beim Monitorkommando "7" fuer die PIO2-Karte:
+;   Adresse 0FD4H von 10H auf 20H korrigiert
+;
+; Aenderungen an der BWS-CPLD-Version 2021:
+; - Grafiktaste 02A9H ist FFH (= abgeschaltet)
+; - Farbbyte 0F9FH ist 4FH (= weiss auf blauem Hintergrund)
+; - die Monitorkommandos "X" (Programmpaket-X), "b" und "r"
+;   (Kaltstart und Warmstart von ROM-Grafik-Basic V3.2)
+;   wurden entfernt
+; - neues Monitorkommando "X": Start der ROM-Bank
+;
+;
+; *******************************************************************
+; *  Wichtig:                                                       *
+; *  Hier muss die geforderte Monitorversion auskommentiert werden  *
+; *******************************************************************
+MONI88  EQU  1            ;Monitor 10/88 - Originalversion 1988
+;MONI11  EQU  1            ;Monitor 10/88 - BWS-CPLD-Version 2011
+;MONI21  EQU  1            ;Monitor 10/88 - BWS-CPLD-Version 2021
+;
+;
+        PAGE 64
+;
+        IF1
+        IFDEF MONI88
+        .PRINTX 'Monitor 10/88 - Originalversion 1988'
+        ENDIF
+        IFDEF MONI11
+        .PRINTX 'Monitor 10/88 - BWS-CPLD-Version 2011'
+        ENDIF
+        IFDEF MONI21
+        .PRINTX 'Monitor 10/88 - BWS-CPLD-Version 2021'
+        ENDIF
+        .PRINTX 'PASS 1'
+        ENDIF
+;
+        IF2
+        .PRINTX 'PASS 2'
+        ENDIF
+;
+        .CREF
+        .Z80
+;
+ARG1    EQU  185BH
+ARG2    EQU  185DH
+ARG3    EQU  185FH
+;
+P00     EQU  00H          ;CTC
+P04     EQU  04H          ;PIO 1
+P05     EQU  05H 
+P08     EQU  08H          ;PIO 2
+P0E     EQU  0EH          ;ROM-Bank: EPROM-Einblendung
+P0F     EQU  0FH          ;PIO2-Karte: EPROM-Einblendung
+P14     EQU  14H          ;Modul-1: Konfigurationsregister
+;
+        .PHASE 0000H
+;
+L0000:  DI 
+        LD   SP,1856H     ;Stack 
+        IM   2 
+        JR   INIT1 
+;
+;
+; RST 8H - Eingabekanal, normal Tastatur
+; --------------------------------------
+;
+L0008:  JP   1802H        ;Sprungtabelle 1802H
+;
+;
+; INIT1 nach Reset
+;
+INIT1:  CALL MS30         ;Zeitschleife 30ms
+        JR   INIT2 
+;
+;
+; RST 10H - Ausgabekanal, normal Bildschirm
+; -----------------------------------------
+;
+L0010:  JP   1805H        ;Sprungtabelle 1805H
+;
+;
+; Einsprungpunkt fuer RST 10H   (Ausgabekanal, normal Bildschirm)
+; ---------------------------
+;
+RST10:  PUSH HL 
+        PUSH AF 
+        JP   RST10A 
+;
+;
+; RST 18H - Zeichenkettenausgabe bis incl. des Byte, wo bit 7 gesetzt
+; -------------------------------------------------------------------
+;
+L0018:  JP   1808H        ;Sprungtabelle 1808H
+;
+;
+; Init2 nach Reset
+;
+INIT2:  LD   DE,1800H 
+        JR   INIT3 
+;
+;
+; RST 20H - nicht verwendet
+; -------------------------
+;
+L0020:  JP   180BH        ;Sprungtabelle 180BH
+;
+;
+        IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
+;
+        DEFB 0FFH,0FFH
+        DEFB 0FFH,0FFH
+        DEFB 0FFH         ;Platzhalter 5 Byte
+;
+        ENDIF
+;
+        IFDEF MONI11      ;Monitor 10/88 - BWS-CPLD-Version 2011
+;
+; Codeschnipsel zur Funktion "8"
+; ------------------------------
+;
+FKT8:   LD   A,40H        ;Codeschnipsel zur Funktion "8"
+        JP   FKT0         ;A auf Port 0FH ausgeben
+;
+        ENDIF
+;
+        IFDEF MONI21      ;Monitor 10/88 - BWS-CPLD-Version 2021
+;
+; Codeschnipsel zur Funktion "8"
+; ------------------------------
+;
+FKT8:   LD   A,40H        ;Codeschnipsel zur Funktion "8"
+        JP   FKT0         ;A auf Port 0FH ausgeben
+;
+        ENDIF
+;
+;
+; RST 28H - nicht verwendet
+; -------------------------
+;
+L0028:  JP   180EH        ;Sprungtabelle 180EH
+;
+;
+; Funktion Ausgabe ueber Bildschirm - Teil 2
+; ------------------------------------------
+;
+FKT33A: PUSH HL 
+        PUSH DE 
+        JP   FKT33B 
+;
+;
+; RST 30H - nicht verwendet
+; -------------------------
+;
+L0030:  JP   1811H        ;Sprungtabelle 1811H
+;
+;
+; Funktion auf Adresse 0033H - Ausgabe ueber Bildschirm
+; -----------------------------------------------------
+;
+FKT33:  PUSH AF 
+        JR   FKT33A 
+;
+;
+        DEFB 0FFH,0FFH    ;Platzhalter 2 Byte
+;
+;
+; RST 38H - Breakpoint
+; --------------------
+;
+        JP   1814H        ;Sprungtabelle 1814H
+;
+;
+; INIT3 nach Reset
+;
+INIT3:  LD   A,02H 
+        LD   I,A 
+        LD   HL,TABIO     ;Tabelle fuer IO-Befehle
+        LD   B,11H        ;insgesamt 17 Befehle an versch. Ports
+INIT4:  LD   C,(HL) 
+        INC  HL 
+        OUTI 
+        JR   NZ,INIT4 
+        EX   DE,HL 
+        LD   B,60H        ;1800H bis 185FH mit 0FFH beschreiben
+INIT5:  LD   (HL),0FFH    ;HL=1800H
+        INC  HL 
+        DJNZ INIT5 
+        LD   BC,0020H     ;Laenge = 32 Bytes
+        LD   HL,SPTAB     ;Sprungtabelle = 0220H
+        LD   DE,1802H     ;Ziel = 1802H
+        LDIR 
+        IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
+        CALL UPTAST       ;Taste gedrueckt?
+        ENDIF
+        IFDEF MONI11      ;Monitor 10/88 - BWS-CPLD-Version 2011
+        CALL FARBIN       ;CALL Farb-Initialisierung
+        ENDIF
+        IFDEF MONI21      ;Monitor 10/88 - BWS-CPLD-Version 2021
+        CALL FARBIN       ;CALL Farb-Initialisierung
+        ENDIF
+        JR   NZ,INIT6     ;Taste gedrueckt (nur Originalversion 1988)
+        JR   INIT7 
+;
+;
+        DEFB 0FFH,0FFH    ;Platzhalter 2 Byte
+;
+;
+; NMI-Befehl, Programmunterbrechung
+; ---------------------------------
+;
+        JP   1817H        ;Sprungtabelle 1817H
+;
+;
+INIT6:  CP   58H          ;Taste "X" gedrueckt?
+JUMPX:  JP   Z,PROGX      ;Sprung zum Programmpaket X
+INIT7:  XOR  A 
+        OUT  (P14),A      ;Port 14 zuruecksetzen
+        RST  18H 
+        DEFB 0CH,0DH,0FH,0FH 
+        IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
+        DEFM "AC 1 * MONITOR *" 
+        DEFM " U880  * (10/88)" 
+        ENDIF
+        IFDEF MONI11      ;Monitor 10/88 - BWS-CPLD-Version 2011
+        DEFM "AC 1 * MONITOR (" 
+        DEFM "10/88) * 11/2011" 
+        ENDIF
+        IFDEF MONI21      ;Monitor 10/88 - BWS-CPLD-Version 2021
+        DEFM "AC 1 * MONITOR (" 
+        DEFM "10/88) * 04/2021" 
+        ENDIF
+        DEFB 0DH,0DH+80H 
+        JP   GETCO        ;Sprung in die Monitoreingabeschleife
+;
+;
+; Tasten-Piep
+;
+PIEP:   LD   (HL),C 
+        LD   BC,0A034H
+        CALL UPTON        ;UP 'Ton', Reg, B = Tonlaenge, C = Tonhoehe
+ENDE8:  POP  BC 
+        POP  HL 
+        RET 
+;
+;
+; Einsprungpunkt fuer RST 08H   (Eingabekanal, normal Tastatur)
+; ---------------------------
+;
+RST08:  PUSH HL 
+        PUSH BC 
+        LD   A,(1821H)    ;LD A,I/O-Byte 
+        RRCA              ;Rotiere A-Register rechts
+        JR   NC,NOTAST    ;anderes Eingabegeraet (keine Tastatur)
+        LD   HL,1857H     ;hier gehts weiter YYYYYYYY
+        LD   B,(HL) 
+        LD   (HL),18H 
+L00B3:  CALL UPTAST 
+        JR   Z,L00BD 
+        DEC  B 
+        JR   NZ,L00B3 
+        LD   (HL),01H 
+L00BD:  LD   HL,(1800H) 
+        LD   C,(HL) 
+L00C1:  LD   (HL),7FH 
+L00C3:  CALL UPTAST 
+        JR   NZ,PIEP      ;Tasten-Piep
+        LD   A,48H 
+L00CA:  DEC  A 
+        JR   NZ,L00CA 
+        DJNZ L00C3 
+        LD   A,C 
+        CP   (HL) 
+        JR   Z,L00C1 
+        LD   (HL),C 
+        JR   L00C3 
+;
+; anderes Eingabegeraet (keine Tastatur)
+;
+NOTAST: RRCA              ;Rotiere A-Register rechts
+        JR   NC,NOV24     ;anderes Eingabegeraet (kein V.24)
+L00D9:  LD   A,(1820H) 
+        AND  07H 
+        LD   B,A 
+        LD   A,01H 
+L00E1:  ADD  A,A 
+        DJNZ L00E1 
+        LD   H,A 
+        XOR  A 
+        OUT  (P08),A 
+L00E8:  IN   A,(P08) 
+        AND  01H 
+        JR   NZ,L00E8 
+        LD   B,H 
+L00EF:  LD   A,R 
+        LD   A,A 
+        DJNZ L00EF 
+        LD   B,0AH 
+L00F6:  LD   L,H 
+        RR   C 
+        IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
+L00F9:  PUSH HL
+        POP  HL
+        LD   A,A
+        ENDIF
+        IFDEF MONI11      ;Monitor 10/88 - BWS-CPLD-Version 2011
+L00F9:  BIT  3,(HL)
+        NOP
+        ENDIF
+        IFDEF MONI21      ;Monitor 10/88 - BWS-CPLD-Version 2021
+L00F9:  BIT  3,(HL)
+        NOP
+        ENDIF
+        DEC  L 
+        IN   A,(P08) 
+        JR   NZ,L00F9 
+        RRA 
+        DJNZ L00F6 
+        LD   A,0AH 
+        OUT  (P08),A 
+        LD   A,C 
+        JR   ENDE8        ;Ende von RST08
+;
+        DEFB 0FFH         ;Platzhalter 1 Byte
+;
+; anderes Eingabegeraet (keine Tastatur, kein V.24)
+;
+NOV24:  RRCA              ;Rotiere A-Register rechts
+        CALL C,0FFFFH     ;Reserve --> nicht belegt --> Fehlermeldung
+        RRCA              ;Rotiere A-Register rechts
+        CALL C,18F0H      ;Sprung zum UP User-Eingabe
+        JR   ENDE8        ;Ende von RST08
+;
+;
+; Start vom Programmpaket X
+; -------------------------
+;
+        IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
+PROGX:  LD   A,01H 
+        OUT  (P14),A 
+        JP   0E000H       ;Sprung zum Programmpaket X
+        ENDIF
+        IFDEF MONI11      ;Monitor 10/88 - BWS-CPLD-Version 2011
+PROGX:  LD   A,01H 
+        OUT  (P14),A 
+        JP   0E000H       ;Sprung zum Programmpaket X
+        ENDIF
+        IFDEF MONI21      ;Monitor 10/88 - BWS-CPLD-Version 2021
+PROGX:  JP   STARTX       ;Sprung zur ROM-Bank
+        DEFB 0FFH,0FFH
+        DEFB 0FFH,0FFH    ;Platzhalter 4 Byte
+        ENDIF
+;
+;
+; UP 'MS 30', Zeitschleife 30 ms
+; ------------------------------
+;
+MS30:   PUSH BC 
+        LD   BC,0903H     ;Zeitkonstante fuer 30ms
+MS30A:  DEC  BC 
+        LD   A,B 
+        OR   C 
+        JR   NZ,MS30A 
+        POP  BC 
+        RET 
+;
+;
+; INLINE:
+; liest eine Zeile, die mit cr abgeschlossen wird, auf dem Schirm ein
+; und legt den Anfang der Zeile in den Zellen 181A...181B ab
+; -------------------------------------------------------------------
+;
+INLINE: PUSH AF 
+        PUSH HL 
+        RST  18H 
+        DEFM " #" 
+        DEFB 20H+80H 
+        NOP 
+L012F:  RST  08H 
+        LD   HL,(1800H) 
+        RST  10H 
+        CP   0DH 
+        JR   NZ,L012F 
+        LD   A,23H 
+L013A:  INC  HL 
+        CP   (HL) 
+        JR   NZ,L013A 
+        DEC  HL 
+        DEC  HL 
+        LD   (181AH),HL 
+        POP  HL 
+        POP  AF 
+        RET 
+;
+;
+; UP-Routine zu InHex (TODO)
+; -------------------
+;
+L0146:  LD   A,(DE) 
+        CP   20H 
+        DEC  DE 
+        JR   Z,L0146 
+        INC  DE 
+        XOR  A 
+        LD   HL,1858H 
+        LD   (HL),A 
+        INC  HL 
+        LD   (HL),A 
+        INC  HL 
+        LD   (HL),A 
+L0156:  LD   A,(DE) 
+        DEC  HL 
+        DEC  HL 
+        SUB  30H 
+        RET  M 
+        CP   0AH 
+        JR   C,L0168 
+        SUB  07H 
+        CP   0AH 
+        RET  M 
+        CP   10H 
+        RET  P 
+L0168:  DEC  DE 
+        INC  (HL) 
+        INC  HL 
+        RLD 
+        INC  HL 
+        RLD 
+        JR   L0156 
+;
+;
+; UP InHex (TODO)
+; --------
+;
+INHEX:  PUSH BC 
+        PUSH AF 
+        CALL L0146 
+        INC  HL 
+        LD   B,H 
+        LD   C,L 
+        LD   L,(HL) 
+        INC  BC 
+        LD   A,(BC) 
+        LD   H,A 
+        POP  BC 
+        OR   L 
+        LD   A,B 
+        POP  BC 
+        RET 
+;
+;
+; UP OutHex (TODO)
+; gibt den Akku als zweistellige Hexzahl auf dem Schirm aus
+; ---------------------------------------------------------
+;
+OUTHEX: PUSH AF 
+        RRA 
+        RRA 
+        RRA 
+        RRA 
+        CALL L018C 
+        POP  AF 
+L018C:  PUSH AF 
+        AND  0FH 
+        ADD  A,30H 
+        CP   3AH 
+        JR   C,L0197 
+        ADD  A,07H 
+L0197:  RST  10H 
+        POP  AF 
+        RET 
+;
+;
+; UP OutHL (TODO)
+; gibt das HL-Register als vierstellige Hexzahl auf dem Schirm aus
+; ----------------------------------------------------------------
+;
+OUTHL:  PUSH AF 
+        LD   A,H 
+        CALL OUTHEX 
+        LD   A,L 
+        CALL OUTHEX 
+        POP  AF 
+        RET 
+;
+;
+; UP, CPU-Register ausraeumen nach RSA
+; ------------------------------------
+;
+CPURSA: LD   (1858H),SP 
+        LD   SP,1875H 
+        PUSH IY 
+        PUSH IX 
+        PUSH HL 
+        PUSH DE 
+        PUSH BC 
+        PUSH AF 
+        EXX 
+        EX   AF,AF' 
+        PUSH HL 
+        PUSH DE 
+        PUSH BC 
+        PUSH AF 
+        JR   L01D1 
+;
+;
+; UP, CPU-Register einraeumen von RSA
+; -----------------------------------
+;
+RSACPU: LD   (1858H),SP 
+        LD   SP,1861H 
+        POP  AF 
+        POP  BC 
+        POP  DE 
+        POP  HL 
+        EXX 
+        EX   AF,AF' 
+        POP  AF 
+        POP  BC 
+        POP  DE 
+        POP  HL 
+        POP  IX 
+        POP  IY 
+L01D1:  LD   SP,(1858H) 
+        RET 
+;
+;
+; V 24 - Eingabe UP (TODO)
+; -----------------
+;
+V24IN:  PUSH HL
+        PUSH BC 
+        JP   L00D9 
+;
+L01DB:  RST  18H 
+        DEFM " " 
+        DEFB 3FH+80H      ;"?+80H 
+;
+;
+; Warteschleife Kommandozeicheneingabe (TODO)
+; ------------------------------------
+;
+L01DE:  CALL INLINE 
+        LD   HL,0200H 
+        LD   BC,0FE00H
+L01E7:  XOR  A 
+        CPIR 
+        JP   PO,L01DB 
+        LD   A,09H 
+        CP   (HL) 
+        JR   NZ,L01E7 
+        INC  HL 
+        LD   DE,(181AH) 
+        LD   A,(DE) 
+        CP   (HL) 
+        JR   NZ,L01E7 
+        INC  HL 
+        LD   A,0DH 
+        CP   (HL) 
+        JR   NZ,L01E7 
+        LD   BC,01DEH 
+        PUSH BC 
+        INC  HL 
+        PUSH HL 
+        DEC  DE 
+        CALL INHEX 
+        LD   A,(DE) 
+        CP   3AH 
+        JR   Z,L021F 
+        LD   (ARG1),HL 
+        CALL INHEX 
+        LD   (ARG2),HL 
+        CALL INHEX 
+        LD   (ARG3),HL 
+L021F:  RET
+;
+;
+; Sprungverteiler fuer RST und NMI (insgesamt 32 Bytes)
+; --------------------------------
+;
+; wird beim Systemstart nach Adresse 1802H kopiert
+; 
+SPTAB:  JP   RST08        ;Einsprungpunkt fuer RST 08H
+        JP   RST10        ;Einsprungpunkt fuer RST 10H 
+        JP   RST18        ;Einsprungpunkt fuer RST 18H
+        JP   0FFFFH       ;Einsprungpunkt fuer RST 20H 
+        JP   0FFFFH       ;Einsprungpunkt fuer RST 28H 
+        JP   0FFFFH       ;Einsprungpunkt fuer RST 30H 
+        JP   BREAK        ;Einsprungpunkt fuer RST 38H 
+        JP   BREAK        ;Einsprungpunkt fuer NMI 
+        DEFB 0FFH,0FFH    ;Zwischenspeicher 'Inline'
+        DEFM "SCH"        ;Warmstartcode
+        IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
+        DEFB 0AFH         ;Warmstartcode
+        DEFB 02H          ;Kommandocode V 24 (Adresse 1820H)
+        ENDIF
+        IFDEF MONI11      ;Monitor 10/88 - BWS-CPLD-Version 2011
+        DEFB 00H          ;Warmstartcode
+        DEFB 43H          ;Kommandocode V 24 (Adresse 1820H)
+        ENDIF
+        IFDEF MONI21      ;Monitor 10/88 - BWS-CPLD-Version 2021
+        DEFB 00H          ;Warmstartcode
+        DEFB 43H          ;Kommandocode V 24 (Adresse 1820H)
+        ENDIF
+        DEFB 11H          ;Ein/Ausgabebyte (Adresse 1821H)
+;
+;
+; Einsprungpunkt fuer RST 38H und NMI (TODO)
+; -----------------------------------------
+;
+BREAK:  CALL CPURSA        ;UP, CPU-Register ausraeumen nach RSA
+        POP  HL
+        DEC  HL
+        LD   (1875H),HL 
+        LD   (1877H),SP 
+        LD   SP,1856H     ;Stack 
+        LD   A,11H 
+        LD   (1821H),A    ;LD I/O-Byte,A
+        RST  18H 
+        DEFM " BREA" 
+        DEFB 4BH+80H      ;"K+80H 
+;
+;
+; Monitoreingabeschleife, der Monitorstack wird neu initialisiert
+; ----------------------
+;
+GETCO:  LD   SP,1856H     ;Stack 
+        LD   A,0DAH
+        OUT  (P05),A 
+        LD   HL,01DEH 
+        PUSH HL 
+        RETN 
+;
+;
+; UP 'ERROR', schreibt Zeichenkette 'ERROR'
+; -----------------------------------------
+;
+ERROR:  RST  18H 
+        DEFM "  ERROR" 
+        DEFB 20H+80H 
+        RET 
+;
+;
+; UP 'akustisches Signal'
+; -----------------------
+;
+L0272:  PUSH BC 
+        LD   B,02H 
+L0275:  PUSH BC 
+        LD   BC,0040H 
+        CALL UPTON        ;UP 'Ton', Reg, B = Tonlaenge, C = Tonhoehe
+        LD   BC,0F032H
+        CALL UPTON        ;UP 'Ton', Reg, B = Tonlaenge, C = Tonhoehe
+        POP  BC 
+        DJNZ L0275 
+        POP  BC 
+        RET 
+;
+;
+; UP 'Ton', Reg, B = Tonlaenge, C = Tonhoehe
+; ----------------------------------------
+;
+UPTON:  PUSH AF 
+L0288:  IN   A,(P05) 
+        RRA 
+        CCF 
+        RLA 
+        OUT  (P05),A 
+        LD   A,C 
+L0290:  DEC  A 
+        JR   NZ,L0290 
+        DJNZ L0288 
+        POP  AF 
+        RET 
+;
+;
+; UP 'Taste', testet Tastaturstatus
+; ---------------------------------
+;
+UPTAST: PUSH BC 
+        CALL L02C3 
+        JR   Z,L02BD 
+        LD   B,0CH 
+        LD   C,A 
+L02A0:  CALL L02C3 
+        CP   C 
+        JR   NZ,L02BD 
+        DJNZ L02A0 
+; Einbau der Grafiktaste (nur Originaltastatur)                   
+; ----------------------                                                                
+; Der einpolige rastende Schalter kommt an PIO 1/B2 und Masse     
+; Von PIO 1/B2 ein R = 330 Ohm und LED VQA 13 nach 5P an-         
+; schliessen. Die LED leuchtet bei eingeschalteter Grafiktas-      
+; tatur. Aenderung im Monitor notwendig!                            
+; Adresse 02A9 Datenbyte FF in 21 aendern.                         
+        IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
+        CP   21H          ;Grafiktaste wird verwendet
+        ENDIF
+        IFDEF MONI11      ;Monitor 10/88 - BWS-CPLD-Version 2011
+        CP   21H          ;Grafiktaste wird verwendet
+        ENDIF
+        IFDEF MONI21      ;Monitor 10/88 - BWS-CPLD-Version 2021
+        CP   0FFH         ;Grafiktaste wird nicht verwendet
+        ENDIF
+        JR   C,L02BB 
+        IN   A,(P05) 
+        BIT  2,A 
+        LD   A,C 
+        JR   NZ,L02BB 
+        ADD  A,80H 
+        CP   0E0H
+        JR   C,L02BB 
+        SUB  60H 
+L02BB:  INC  B 
+        DEFB 06H          ;LD   B,0AFH (incl. naechsten Befehl!!!)
+L02BD:  XOR  A
+        POP  BC 
+        LD   (1822H),A    ;Tastencode der zuletzt gedrueckten Taste
+        RET 
+;
+L02C3:  LD   A,48H 
+L02C5:  DEC  A 
+        JR   NZ,L02C5 
+        IN   A,(P04) 
+        BIT  7,A 
+        RES  7,A 
+        RET 
+;
+;
+; Funktion "W" --> Port ausgeben (TODO)
+;
+        DEFB 00H,09H,57H,0DH 
+        CALL ARGLD        ;ARG1-->HL ARG2-->DE ARG3-->BC 
+        LD   B,H 
+        LD   C,L 
+        OUT  (C),E 
+        RET 
+;
+;
+        IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
+;
+        DEFB 0FFH,0FFH,0FFH,0FFH
+        DEFB 0FFH,0FFH,0FFH,0FFH
+        DEFB 0FFH,0FFH,0FFH,0FFH
+        DEFB 0FFH,0FFH,0FFH,0FFH
+        DEFB 0FFH,0FFH,0FFH,0FFH
+        DEFB 0FFH         ;Platzhalter 21 Byte
+;
+        ENDIF
+        IFDEF MONI11      ;Monitor 10/88 - BWS-CPLD-Version 2011
+;
+; Codeschnipsel fuer Farb-Initialisierung
+;
+FARBIN: CALL FINIT        ;Farb-Initialisierung 
+        JR   UPTAST 
+;
+;
+; Funktion "6" --> PIO2-Karte: Bank 1 einschalten
+;
+        DEFB 00H,09H,36H,0DH 
+        LD   A,10H 
+        JR   FKT0         ;A auf Port 0FH ausgeben
+;
+;
+; Funktion "0" --> PIO2-Karte: EPROM ausblenden
+;
+        DEFB 00H,09H,30H,0DH 
+        XOR  A
+FKT0:   OUT  (P0F),A 
+        RET 
+;
+        ENDIF
+        IFDEF MONI21      ;Monitor 10/88 - BWS-CPLD-Version 2021
+;
+; Codeschnipsel fuer Farb-Initialisierung
+;
+FARBIN: CALL FINIT        ;Farb-Initialisierung 
+        JR   UPTAST 
+;
+;
+; Funktion "6" --> PIO2-Karte: Bank 1 einschalten
+;
+        DEFB 00H,09H,36H,0DH 
+        LD   A,10H 
+        JR   FKT0         ;A auf Port 0FH ausgeben
+;
+;
+; Funktion "0" --> PIO2-Karte: EPROM ausblenden
+;
+        DEFB 00H,09H,30H,0DH 
+        XOR  A
+FKT0:   OUT  (P0F),A 
+        RET 
+;
+        ENDIF
+;
+;
+; Zeichensatz SCCH <--> ACC umschalten
+;
+ZGUMS:  IN   A,(P05)
+        XOR  08H 
+        OUT  (P05),A 
+        JR   L032E 
+;
+;
+        IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
+;
+        DEFB 5BH,07H      ;Interruptvektor CTC --> 075BH ???
+;
+		DEFB 0FFH,0FFH,0FFH,0FFH
+        DEFB 0FFH,0FFH    ;Platzhalter 6 Byte
+;
+        ENDIF
+        IFDEF MONI11      ;Monitor 10/88 - BWS-CPLD-Version 2011
+;
+        DEFB 5BH,5BH      ;Interruptvektor CTC --> 5B5BH ???
+;
+ALTMO:  LD   (0FFFEH),HL  ;wird von Fkt. "Y" angesprungen
+        JP   0FFFEH       ;Start alternativer Monitor im RAM
+;
+        ENDIF
+        IFDEF MONI21      ;Monitor 10/88 - BWS-CPLD-Version 2021
+;
+        DEFB 5BH,5BH      ;Interruptvektor CTC --> 5B5BH ???
+;
+ALTMO:  LD   (0FFFEH),HL  ;wird von Fkt. "Y" angesprungen
+        JP   0FFFEH       ;Start alternativer Monitor im RAM 
+;
+        ENDIF
+;
+;
+; Funktion Ausgabe ueber Bildschirm - Teil 3 (TODO)
+; ------------------------------------------
+;
+FKT33B: PUSH BC 
+        LD   DE,(1800H) 
+        LD   HL,1856H     ;Stack
+        CP   10H 
+        JR   NC,L0318 
+        LD   (HL),01H 
+        LD   BC,03C7H 
+        ADD  A,C 
+        LD   C,A 
+        LD   A,(BC) 
+        LD   C,A 
+        PUSH BC 
+        EX   DE,HL 
+        RET 
+;
+L0318:  DEC  (HL) 
+        JR   NZ,L0333 
+L031B:  LD   (HL),01H 
+        EX   DE,HL 
+        CP   1AH          ;^Z = Zeichensatz umschalten
+        JR   Z,ZGUMS 
+        IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
+        CP   5FH          ;Backspace/DEL mit 5FH
+        ENDIF
+        IFDEF MONI11      ;Monitor 10/88 - BWS-CPLD-Version 2011
+        CP   7FH          ;Backspace/DEL mit 7FH
+        ENDIF
+        IFDEF MONI21      ;Monitor 10/88 - BWS-CPLD-Version 2021
+        CP   7FH          ;Backspace/DEL mit 7FH
+        ENDIF
+        JR   Z,DEL 
+        LD   (HL),A 
+L0327:  DEC  HL 
+L0328:  CALL L03DC 
+L032B:  LD   (1800H),HL 
+L032E:  POP  BC 
+        POP  DE 
+        POP  HL 
+        POP  AF 
+        RET 
+;
+L0333:  CP   30H 
+        JR   C,L031B 
+        JR   Z,L032E 
+        CP   3AH 
+        JR   NC,L031B 
+        SUB  30H 
+        LD   B,(HL) 
+        EX   DE,HL 
+        LD   DE,0FFFFH
+        DEC  B 
+        JR   Z,L0354 
+        LD   E,0F6H
+        DEC  B 
+        JR   Z,L0354 
+        LD   E,0C0H
+        DEC  B 
+        JR   Z,L0354 
+        LD   DE,0FD80H
+L0354:  LD   B,A 
+L0355:  ADD  HL,DE 
+        CALL L03DC 
+        DJNZ L0355 
+        JR   L032B 
+;
+;
+; Kursor nach links und Zeichen loeschen
+;
+DEL:    INC  HL 
+        CALL L03DC 
+        LD   (HL),20H 
+        JR   L032B 
+;Ansprung unklar
+L0365:  LD   HL,17FFH 
+        LD   (1800H),HL 
+L036B:  LD   (HL),20H 
+        DEC  HL 
+        LD   A,H 
+        CP   0FH 
+        JR   NZ,L036B 
+        JR   L032E 
+;Ansprung unklar
+L0375:  LD   (HL),20H 
+L0377:  DEC  HL 
+        LD   (HL),20H 
+        LD   A,3FH 
+        AND  L 
+        JR   NZ,L0377 
+L037F:  JR   L032E 
+;Ansprung unklar
+L0381:  LD   A,L 
+        OR   3FH 
+        LD   L,A 
+        JR   L032B 
+;Ansprung unklar
+L0387:  CALL L0272 
+        JR   L032E 
+;Ansprung unklar
+L038C:  INC  HL 
+        JR   L0328 
+;Ansprung unklar
+L038F:  LD   DE,0FFC0H
+L0392:  ADD  HL,DE 
+        JR   L0328 
+;Ansprung unklar
+L0395:  LD   DE,0040H 
+        JR   L0392 
+;Ansprung unklar
+L039A:  LD   A,L 
+        AND  0C0H
+        LD   L,A 
+        JR   L0327 
+;Ansprung unklar
+L03A0:  LD   A,05H 
+        LD   (DE),A 
+        LD   HL,17FFH 
+        JR   L032B 
+;Ansprung unklar
+L03A8:  LD   D,H 
+        LD   E,L 
+        DEC  HL 
+L03AB:  LD   A,L 
+        LDD 
+        AND  3FH 
+        JR   NZ,L03AB 
+        INC  DE 
+L03B3:  LD   A,20H 
+        LD   (DE),A 
+        JR   L037F 
+;Ansprung unklar
+L03B8:  LD   A,L 
+        AND  0C0H
+        LD   E,A 
+        LD   A,L 
+        LD   L,E 
+        LD   D,H 
+        INC  HL 
+L03C0:  CP   E 
+        JR   Z,L03B3 
+        LDI 
+        JR   L03C0 
+;Ansprung unklar
+L03C7:  LD   L,0A3H
+        LD   L,E 
+        LD   (HL),L 
+        XOR  B 
+        CP   B 
+        ADD  A,C 
+        ADD  A,A 
+        ADC  A,H 
+        DAA 
+        ADC  A,A 
+        SUB  L 
+        LD   H,L 
+        SBC  A,D 
+        AND  B 
+        RST  10H 
+        LD   DE,0FFF8H
+        JR   L0392 
+;
+L03DC:  LD   A,H 
+        CP   18H 
+        JR   C,L03E3 
+        LD   H,10H 
+L03E3:  CP   10H 
+        RET  NC 
+        LD   A,L 
+        PUSH DE 
+        PUSH BC 
+        LD   HL,17BFH 
+        LD   DE,17FFH 
+        LD   BC,07C0H 
+        LDDR 
+        EX   DE,HL 
+        INC  HL 
+L03F6:  DEC  L 
+        LD   (HL),20H 
+        JR   NZ,L03F6 
+        AND  3FH 
+        LD   L,A 
+        POP  BC 
+        POP  DE 
+        RET 
+;
+;
+; Funktion "N" --> CRC - Pruefsumme (TODO)
+;
+        DEFB 00H,09H,4EH 
+L0404:  DEC  C            ;= 0DH --> Der Sprung geht in die Kennung hinein
+        CALL ARGLD        ;ARG1-->HL ARG2-->DE ARG3-->BC 
+        EX   DE,HL 
+        INC  HL 
+        XOR  A 
+        SBC  HL,DE 
+        LD   BC,0FFFFH
+L0410:  LD   A,(DE) 
+        XOR  B 
+        LD   B,A 
+        RRCA 
+        RRCA 
+        RRCA 
+        RRCA 
+        AND  0FH 
+        XOR  B 
+        LD   B,A 
+        RRCA 
+        RRCA 
+        RRCA 
+        PUSH AF 
+        AND  1FH 
+        XOR  C 
+        LD   C,A 
+        POP  AF 
+        PUSH AF 
+        RRCA 
+        AND  0F0H
+        XOR  C 
+        LD   C,A 
+        POP  AF 
+        AND  0E0H
+        XOR  B 
+        LD   B,C 
+        LD   C,A 
+        INC  DE 
+        DEC  HL 
+        LD   A,H 
+        OR   L 
+        JR   NZ,L0410 
+        PUSH BC 
+        RST  18H 
+        DEFM " CRC" 
+        DEFB 20H+80H 
+        POP  HL 
+        JP   OUTHL 
+;
+;
+; ??? (TODO)
+;
+L0441:  LD   B,C 
+        INC  HL 
+L0443:  DEC  HL 
+        DJNZ L0443 
+        LD   (ARG2),HL 
+        RST  18H 
+        DEFB 06H,03H+80H 
+        LD   B,0CH 
+L044E:  RST  18H 
+        DEFB 09H+80H 
+        DJNZ L044E 
+        CALL L07F1 
+        LD   DE,(1800H) 
+        RST  18H 
+        DEFM ">" 
+        DEFB 20H+80H 
+        LD   B,08H 
+L045E:  LD   A,(HL) 
+        INC  HL 
+        RST  18H 
+        DEFB 20H+80H 
+        CALL L07EE 
+        DJNZ L045E 
+        RST  18H 
+        DEFM "  *" 
+        DEFB 20H+80H 
+        LD   HL,(ARG2) 
+        LD   B,08H 
+L0471:  LD   A,(HL) 
+        INC  HL 
+        CALL L0487 
+        JR   NC,L047A 
+        LD   A,2EH 
+L047A:  RST  10H 
+        DJNZ L0471 
+        LD   (ARG1),HL 
+        RST  18H 
+        DEFM " *" 
+        DEFB 06H 
+        DEFM " " 
+        DEFB 06H+80H 
+        RET 
+;
+        IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
+L0487:  CP   5FH
+        ENDIF
+        IFDEF MONI11      ;Monitor 10/88 - BWS-CPLD-Version 2011
+L0487:  CP   7FH
+        ENDIF
+        IFDEF MONI21      ;Monitor 10/88 - BWS-CPLD-Version 2021
+L0487:  CP   7FH
+        ENDIF
+        JR   Z,L0494 
+        CP   20H 
+        RET  C 
+        CP   7FH 
+        JR   NC,L0494 
+L0492:  AND  A 
+        RET 
+;
+L0494:  SCF 
+        RET 
+;
+L0496:  CP   47H 
+        JR   NC,L0494 
+        CP   30H 
+        RET  C 
+        CP   3AH 
+        JR   C,L0492 
+        CP   41H 
+        RET 
+;
+L04A4:  RST  18H 
+        DEFB 06H+80H 
+        LD   B,0CH 
+L04A8:  RST  18H 
+        DEFB 20H+80H 
+        DJNZ L04A8 
+        RET 
+;
+L04AD:  EXX 
+        LD   A,(DE) 
+        AND  A 
+        JR   Z,L04B5 
+        CP   02H 
+        LD   A,(HL) 
+L04B5:  INC  DE 
+        INC  HL 
+        EXX 
+        RET 
+;
+;
+        IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
+;
+        DEFB 0FFH,0FFH,0FFH,0FFH
+        DEFB 0FFH,0FFH,0FFH,0FFH
+        DEFB 0FFH,0FFH,0FFH,0FFH
+        DEFB 0FFH,0FFH,0FFH,0FFH
+        DEFB 0FFH         ;Platzhalter 17 Byte
+;
+        ENDIF
+        IFDEF MONI11      ;Monitor 10/88 - BWS-CPLD-Version 2011
+;
+; Funktion "Y" --> alternativer Monitor im RAM (TODO)
+;
+        DEFB 00H,09H,59H,0DH 
+        CALL ARGLD        ;ARG1-->HL ARG2-->DE ARG3-->BC
+        LD   B,10H 
+        LDIR 
+        LD   HL,16D3H 
+        JP   ALTMO 
+;
+        ENDIF
+        IFDEF MONI21      ;Monitor 10/88 - BWS-CPLD-Version 2021
+;
+; Funktion "Y" --> alternativer Monitor im RAM (TODO)
+;
+        DEFB 00H,09H,59H,0DH 
+        CALL ARGLD        ;ARG1-->HL ARG2-->DE ARG3-->BC
+        LD   B,10H 
+        LDIR 
+        LD   HL,16D3H 
+        JP   ALTMO 
+;
+        ENDIF
+;
+;
+; Register mit Argumenten laden
+; -----------------------------
+;
+ARGLD:  LD   HL,(ARG1) 
+        LD   DE,(ARG2) 
+        LD   BC,(ARG3) 
+        RET 
+;
+;
+        DEFB 0FFH,0FFH    ;Platzhalter 2 Byte
+;
+;
+; Funktion "P" --> Pattern (TODO)
+;
+        DEFB 00H,09H,50H,0DH 
+        CALL ARGLD        ;ARG1-->HL ARG2-->DE ARG3-->BC 
+        LD   (HL),C 
+        PUSH HL 
+        XOR  A 
+        EX   DE,HL 
+        SBC  HL,DE 
+        LD   B,H 
+        LD   C,L 
+        POP  HL 
+        INC  DE 
+L04E9:  LDIR 
+        RET 
+;
+;
+; Funktion "T" --> Transfer (TODO)
+;
+        DEFB 00H,09H,54H,0DH 
+        CALL ARGLD        ;ARG1-->HL ARG2-->DE ARG3-->BC 
+        XOR  A 
+        PUSH HL 
+        SBC  HL,DE 
+        POP  HL 
+        JR   NC,L04E9 
+        ADD  HL,BC 
+        EX   DE,HL 
+        ADD  HL,BC 
+        EX   DE,HL 
+        DEC  HL 
+        DEC  DE 
+        LDDR 
+        RET 
+;
+;
+; Funktion "A" --> Arithmetik (TODO)
+;
+        DEFB 00H,09H,41H,0DH 
+        CALL ARGLD        ;ARG1-->HL ARG2-->DE ARG3-->BC 
+        PUSH HL 
+        PUSH DE 
+        INC  HL 
+        INC  HL 
+        EX   DE,HL 
+        XOR  A 
+        SBC  HL,DE 
+        JR   C,L051D 
+        CP   H 
+        JR   NZ,L052F 
+        BIT  7,L 
+        JR   NZ,L052F 
+        JR   L0525 
+;
+L051D:  CPL 
+        CP   H 
+        JR   NZ,L052F 
+        BIT  7,L 
+        JR   Z,L052F 
+L0525:  RST  18H 
+        DEFM "DSPL" 
+        DEFB 3AH+80H      ;":+80H 
+        LD   A,L 
+        CALL OUTHEX 
+L052F:  POP  DE 
+        POP  HL 
+        PUSH HL 
+        PUSH HL 
+        ADD  HL,DE 
+        RST  18H 
+        DEFM "   SUM" 
+        DEFB 3AH+80H      ;":+80H 
+        CALL OUTHL 
+        POP  HL 
+        SBC  HL,DE 
+        RST  18H 
+        DEFM "   DIF" 
+        DEFB 3AH+80H      ;":+80H 
+        CALL OUTHL 
+        POP  BC 
+        LD   HL,0000H 
+        LD   E,L 
+L0552:  LD   A,B 
+        OR   C 
+        JR   Z,L0565 
+        DEC  BC 
+        LD   A,L 
+        INC  A 
+        DAA 
+        LD   L,A 
+        LD   A,H 
+        ADC  A,00H 
+        DAA 
+        LD   H,A 
+        JR   NC,L0552 
+        INC  E 
+        JR   L0552 
+;
+L0565:  RST  18H 
+        DEFM "   DEC" 
+        DEFB 3AH+80H      ;":+80H 
+        LD   A,E 
+        AND  0FH 
+        OR   30H 
+        RST  10H 
+        CALL OUTHL 
+        RST  18H 
+        DEFB 0DH+80H 
+        RET 
+;
+;
+; ??? (TODO)
+;
+L0579:  LD   C,A 
+        LD   HL,05BEH 
+        LD   B,08H 
+L057F:  RLC  C 
+        JR   NC,L0585 
+        LD   A,(HL) 
+        RST  10H 
+L0585:  INC  HL 
+        DJNZ L057F 
+        RET 
+;
+;
+; ??? (TODO)
+;
+
+L0589:  CALL OUTHL 
+L058C:  RST  18H 
+        DEFM "   " 
+        DEFB 20H+80H 
+        RET 
+;
+;
+; Texte (TODO)
+;
+        DEFB 41H,42H,44H,48H ;ABDH
+        DEFB 58H,59H,43H,50H ;XYCP
+        DEFB 20H,20H,20H,20H
+        DEFB 53H,50H,50H,43H ;SPPC
+        DEFB 49H,59H,49H,58H ;IYIX
+        DEFB 4DH,41H,49H,4EH ;MAIN
+        DEFB 48H,4CH,44H,45H ;HLDE
+        DEFB 42H,43H,41H,46H ;BCAF
+        DEFB 45H,58H,58H,52H ;EXXR
+        DEFB 48H,4CH,44H,45H ;HLDE
+        DEFB 42H,43H,41H,46H ;BCAF
+        DEFB 53H,5AH,00H,48H ;SZ.H
+        DEFB 00H,50H,4EH,43H ;.PNC
+;
+;
+; Funktion "R" --> Register (TODO)
+;
+        DEFB 00H,09H,52H,0DH 
+        CP   3AH 
+        JR   NZ,L063D 
+L05CE:  RST  18H 
+        DEFM "  BP" 
+        DEFB 3AH+80H      ;":+80H 
+        LD   HL,(1879H) 
+        CALL L0589 
+        RST  18H 
+        DEFM "BS" 
+        DEFB 3AH+80H      ;":+80H 
+        LD   HL,187BH 
+        LD   B,03H 
+L05E3:  LD   A,(HL) 
+        CALL OUTHEX 
+        INC  HL 
+        DJNZ L05E3 
+        LD   C,03H 
+        LD   DE,059AH 
+        LD   IX,1878H 
+L05F3:  RST  18H 
+        DEFB 0DH 
+        DEFM " " 
+        DEFB 20H+80H 
+        LD   B,04H 
+L05F9:  LD   A,(DE) 
+        RST  10H 
+        INC  DE 
+        DJNZ L05F9 
+        RST  18H 
+        DEFM " " 
+        DEFB 20H+80H 
+        LD   B,04H 
+L0603:  LD   A,(DE) 
+        RST  10H 
+        INC  DE 
+        LD   A,(DE) 
+        RST  10H 
+        INC  DE 
+        RST  18H 
+        DEFB 3AH+80H      ;":+80H 
+        DEFB 0DDH,66H,00H ;Befehl = LD H,(IX+d)
+        DEC  IX 
+        DEFB 0DDH,6EH,00H ;Befehl = LD L,(IX+d)
+        DEC  IX 
+        CALL L0589
+        DJNZ L0603 
+        DEC  C 
+        JR   NZ,L05F3 
+        RST  18H 
+        DEFB 0DH 
+        DEFM "  FLAGS: " 
+        DEFB 20H+80H 
+        LD   A,(1869H) 
+        CALL L0579 
+        RST  18H 
+        DEFM "  " 
+        DEFB 28H+80H      ;"(+80H 
+        LD   A,(1861H) 
+        CALL L0579 
+        RST  18H 
+        DEFM ")" 
+        DEFB 0DH+80H 
+        RET 
+;
+;
+; ??? (TODO)
+;
+L063D:  LD   HL,(181AH) 
+        DEC  HL 
+        DEC  HL 
+        LD   A,(HL) 
+        PUSH HL 
+        LD   HL,0592H 
+        LD   B,04H 
+        LD   DE,1869H 
+L064C:  CP   (HL) 
+        JR   Z,L0665 
+        INC  DE 
+        INC  DE 
+        INC  HL 
+        DJNZ L064C 
+        POP  BC 
+        DEC  BC 
+        LD   A,(BC) 
+        LD   B,04H 
+L0659:  CP   (HL) 
+        JR   Z,L0673 
+        INC  DE 
+        INC  DE 
+        INC  HL 
+        DJNZ L0659 
+        JP   L05CE 
+;
+;
+        DEFB 0FFH         ;Platzhalter 1 Byte
+;
+;
+; ??? (TODO)
+;
+L0665:  POP  HL 
+        DEC  HL 
+        DEC  HL 
+        LD   A,(HL) 
+        EX   DE,HL 
+        CP   27H 
+        JR   NZ,L0672 
+        LD   DE,0FFF8H
+        ADD  HL,DE 
+L0672:  EX   DE,HL 
+L0673:  LD   A,(DE) 
+        LD   L,A 
+        INC  DE 
+        LD   A,(DE) 
+        LD   H,A 
+        RST  18H 
+        DEFM " " 
+        DEFB 20H+80H 
+        CALL OUTHL 
+L067E:  CALL INLINE 
+        LD   HL,(181AH) 
+        EX   DE,HL 
+        PUSH HL 
+        PUSH DE 
+        CALL INHEX 
+        EX   DE,HL 
+        POP  HL 
+        LD   A,(HL) 
+        POP  HL 
+        CP   20H 
+        RET  Z 
+        LD   (HL),D 
+        DEC  HL 
+        LD   (HL),E 
+        RET 
+;
+;
+; Funktion "C" --> Compare (TODO)
+;
+        DEFB 00H,09H,43H,0DH 
+        CALL ARGLD        ;ARG1-->HL ARG2-->DE ARG3-->BC 
+L069C:  LD   A,(DE) 
+        CP   (HL) 
+        JR   Z,L06BF 
+        RST  18H 
+        DEFM " " 
+        DEFB 20H+80H 
+        CALL L0589 
+        LD   A,(HL) 
+        CALL OUTHEX 
+        CALL L058C 
+        CALL L058C 
+        EX   DE,HL 
+        CALL L0589 
+        EX   DE,HL 
+        LD   A,(DE) 
+        CALL OUTHEX 
+        RST  18H 
+        DEFB 0DH+80H 
+        RST  08H 
+        CP   0DH 
+        RET  NZ 
+L06BF:  DEC  BC 
+        INC  HL 
+        INC  DE 
+        LD   A,B 
+        OR   C 
+        RET  Z 
+        JR   L069C 
+;
+;
+; Funktion "B" --> Breakpoint (TODO)
+;
+        DEFB 00H,09H,42H,0DH 
+        LD   HL,(ARG1) 
+L06CE:  LD   (1879H),HL 
+        LD   DE,187BH 
+        LD   BC,0003H 
+        LDIR 
+        LD   HL,0743H 
+        LD   (1815H),HL 
+        RET 
+;
+;
+; Funktion "G" --> Go (TODO)
+;
+        DEFB 00H,09H,47H,0DH 
+        LD   HL,(1875H) 
+        LD   (ARG1),HL 
+;
+;
+; Funktion "J" --> Jump (TODO)
+;
+        DEFB 00H,09H,4AH,0DH 
+        LD   A,(1815H) 
+        CP   40H 
+        JR   Z,L06FA 
+        LD   HL,(1879H) 
+        LD   (HL),0FFH
+L06FA:  LD   HL,(1877H) 
+        LD   B,0AH 
+        DEFB 2BH          ;ZELDIS: DEC  L 
+L0700:  LD   A,(HL) 
+        CPL 
+        LD   (HL),A 
+        CP   (HL) 
+        JR   NZ,L070E 
+        CPL 
+        LD   (HL),A 
+        DJNZ L0700 
+        LD   HL,(1877H) 
+        DEFB 0DDH         ;LD IX,2000H (+ nxt. Befehl ueberspringen !!!)
+L070E:  LD   HL,2000H
+        LD   SP,HL 
+        LD   HL,(ARG1) 
+        LD   (1875H),HL 
+        PUSH HL 
+        JP   RSACPU       ;UP, CPU-Register einraeumen von RSA
+;
+;
+; Funktion "E" --> Einzelschritt (TODO)
+;
+        DEFB 00H,09H,45H,0DH 
+        LD   A,(DE) 
+        CP   3AH 
+        JR   Z,L072B 
+        LD   HL,(ARG1) 
+L0728:  LD   (1875H),HL 
+L072B:  LD   SP,(1877H) 
+        LD   HL,(1875H) 
+        PUSH HL 
+        CALL RSACPU       ;UP, CPU-Register einraeumen von RSA 
+        PUSH AF 
+        LD   A,87H 
+        OUT  (P00),A 
+        LD   A,02H 
+        OUT  (P00),A 
+        EI 
+        LD   A,(BC) 
+        POP  AF 
+        RET 
+;
+;
+; ??? (TODO)
+;
+        CALL CPURSA        ;UP, CPU-Register ausraeumen nach RSA 
+        LD   HL,(0233H) 
+        LD   (1815H),HL 
+        POP  HL 
+        DEC  HL 
+        LD   A,(187BH) 
+        LD   (HL),A 
+        LD   (1877H),SP 
+        JR   L0728 
+;
+;
+        DEFB 0FFH,0FFH
+        DEFB 0FFH         ;Platzhalter 3 Byte
+;
+;
+; ??? (TODO)
+;
+        CALL CPURSA       ;UP, CPU-Register ausraeumen nach RSA 
+        POP  DE 
+        LD   (1877H),SP 
+        LD   HL,(1875H) 
+        LD   (1875H),DE 
+        LD   SP,1856H     ;Stack 
+        RST  18H 
+        DEFB 06H,0A0H 
+        CALL OUTHL 
+        LD   B,05H 
+L0775:  RST  18H 
+        DEFB 20H+80H 
+        PUSH HL 
+        XOR  A 
+        SBC  HL,DE 
+        POP  HL 
+        JR   Z,L0785 
+L077E:  LD   A,(HL) 
+        INC  HL 
+        CALL OUTHEX 
+        JR   L078D 
+;
+L0785:  LD   A,05H 
+        CP   B 
+        JR   Z,L077E 
+        RST  18H 
+        DEFM " " 
+        DEFB 20H+80H 
+L078D:  DJNZ L0775 
+        LD   B,04H 
+        LD   DE,05AAH 
+        LD   HL,1870H 
+L0797:  RST  18H 
+        DEFB 20H+80H 
+        LD   A,(DE) 
+        RST  10H 
+        INC  DE 
+        LD   A,(DE) 
+        RST  10H 
+        INC  DE 
+        RST  18H 
+        DEFB 3AH+80H      ;":+80H 
+        LD   A,(HL) 
+        DEC  HL 
+        PUSH HL 
+        LD   L,(HL) 
+        LD   H,A 
+        CALL OUTHL 
+        POP  HL 
+        DEC  HL 
+        DJNZ L0797 
+        RST  18H 
+        DEFM " F" 
+        DEFB 3AH+80H      ;":+80H 
+        LD   A,(1869H) 
+        CALL L0579 
+        RST  18H 
+        DEFB 0DH,0A0H 
+        LD   HL,(1875H) 
+        CALL OUTHL 
+        LD   B,05H 
+L07C2:  RST  18H 
+        DEFB 20H+80H 
+        LD   A,(HL) 
+        INC  HL 
+        CALL OUTHEX 
+        DJNZ L07C2 
+        LD   A,03H 
+        OUT  (P00),A 
+L07CF:  RST  10H 
+L07D0:  RST  08H 
+        LD   HL,06E4H 
+        CP   47H 
+        JR   Z,L0804 
+        LD   HL,072BH 
+        CP   0DH 
+        JR   Z,L0804 
+        CP   20H 
+        JR   C,L07CF 
+        LD   HL,01DEH 
+        JR   L0800 
+;
+;
+; Sprungverteiler
+;
+L07E8:  JP   V24          ;V 24
+L07EB:  JP   MS30         ;MS 30
+L07EE:  JP   OUTHEX       ;OUTHEX
+L07F1:  JP   OUTHL        ;OUT HL
+L07F4:  JP   INLINE       ;INLINE
+L07F7:  JP   INHEX        ;INHEX
+L07FA:  JP   TASTE        ;TASTE
+L07FD:  JP   GETCO        ;GETCO
+;
+;
+; Fortsetzung von oben
+;
+L0800:  CP   51H 
+        JR   NZ,L0807 
+L0804:  PUSH HL 
+        RETI 
+;
+L0807:  CP   42H 
+        JR   NZ,L0823 
+        RST  18H 
+        DEFM " B" 
+        DEFB 50H+80H      ;"P+80H 
+        CALL INLINE 
+        LD   HL,(181AH) 
+        LD   A,(HL) 
+        CP   20H 
+        JR   Z,L07D0 
+        EX   DE,HL 
+        CALL INHEX 
+        CALL L06CE 
+        JR   L07D0 
+;
+L0823:  CP   52H 
+        CALL Z,INLINE 
+        CALL Z,L063D 
+        JR   L07D0 
+;
+;
+; Funktion "D" --> Dump (TODO)
+;
+        DEFB 00H,09H,44H,0DH 
+        LD   IX,(ARG2) 
+        XOR  A 
+        LD   (ARG3),A 
+        LD   HL,ARG2 
+        LD   A,(185EH) 
+        OR   (HL) 
+        LD   (1860H),A 
+        RST  18H 
+        DEFM "*" 
+        DEFB 0DH+80H 
+L0846:  LD   C,01H 
+        LD   HL,(ARG1) 
+        LD   A,L 
+        AND  0F8H
+        LD   L,A 
+        CALL L0441 
+        LD   A,(1860H) 
+        AND  A 
+        JR   Z,L0867 
+        RST  18H 
+        DEFB 0DH+80H 
+        LD   DE,(ARG1) 
+        PUSH IX 
+        POP  HL 
+        AND  A 
+        SBC  HL,DE 
+        RET  C 
+        JR   L0846 
+;
+L0867:  CALL L07FA 
+        JR   Z,L0873 
+        RST  18H 
+        DEFB 0DH+80H 
+        JR   L0846 
+;
+L0870:  CALL L0441 
+L0873:  LD   HL,(ARG2) 
+        ADD  HL,BC 
+        DEC  HL 
+        RST  18H 
+        DEFM " " 
+        DEFB 3CH+80H      ;"<+80H 
+        CALL L07F1 
+        RST  18H 
+        DEFB 3EH+80H      ;">+80H 
+        LD   A,(ARG3) 
+        AND  A 
+        JR   NZ,L088E 
+        RST  18H 
+        DEFM " (H)" 
+        DEFB 20H+80H 
+        JR   L0894 
+;
+L088E:  RST  18H 
+        DEFM " (A)" 
+        DEFB 20H+80H 
+L0894:  LD   (1800H),DE 
+        LD   B,C 
+L0899:  RST  18H 
+        DEFB 09H,09H,09H+80H 
+        DJNZ L0899 
+        CALL L07FA 
+        CP   8BH 
+        JR   Z,L0903 
+L08A6:  RST  08H 
+        CP   08H 
+        JP   Z,L0932 
+        CP   03H 
+        JR   Z,L08F3 
+        CP   0DH 
+        JR   Z,L08EB 
+        CP   01H 
+        JR   Z,L08F9 
+        CP   09H 
+        JR   Z,L091B 
+        CP   0AH 
+        JR   Z,L092C 
+        CP   0BH 
+        JR   Z,L0903 
+        CP   20H 
+        JR   C,L08A6 
+        EX   AF,AF' 
+        LD   A,(ARG3) 
+        AND  A 
+        JR   NZ,L090B 
+        EX   AF,AF' 
+        CALL L0496 
+        JR   C,L08A6 
+        LD   B,02H 
+L08D7:  RST  10H 
+        CP   3AH 
+        JR   C,L08DE 
+        SUB  37H 
+L08DE:  RLD 
+        DEC  B 
+        JR   Z,L0912 
+L08E3:  RST  08H 
+        CALL L0496 
+        JR   C,L08E3 
+        JR   L08D7 
+;
+L08EB:  CALL L04A4 
+        RST  18H 
+        DEFB 0DH+80H 
+        JP   L0846 
+;
+L08F3:  RST  18H 
+        DEFB 0DH+80H 
+        LD   (ARG1),HL 
+        RET 
+;
+L08F9:  LD   A,(ARG3) 
+        CPL 
+        LD   (ARG3),A 
+        JP   L0870 
+;
+L0903:  LD   DE,0008H 
+        AND  A 
+        SBC  HL,DE 
+        JR   L0938 
+;
+L090B:  EX   AF,AF' 
+        CALL L0487 
+        JR   C,L08A6 
+        LD   (HL),A 
+L0912:  LD   A,08H 
+        CP   C 
+        JR   NZ,L091B 
+        CALL L0441 
+        DEC  HL 
+L091B:  INC  C 
+        INC  HL 
+        LD   A,09H 
+        CP   C 
+        JR   NZ,L0929 
+        LD   C,01H 
+L0924:  CALL L04A4 
+        RST  18H 
+        DEFB 0AH+80H 
+L0929:  JP   L0870 
+;
+L092C:  LD   DE,0008H 
+        ADD  HL,DE 
+        JR   L0924 
+;
+L0932:  DEC  HL 
+        DEC  C 
+        JR   NZ,L0929 
+        LD   C,08H 
+L0938:  CALL L04A4 
+        LD   DE,(1800H) 
+        PUSH HL 
+        LD   HL,17BFH 
+        SBC  HL,DE 
+        POP  HL 
+        JR   NC,L0957 
+        EXX 
+        LD   HL,1040H 
+        LD   DE,1000H 
+        LD   BC,07C0H 
+        LDIR 
+        EXX 
+        JR   L0929 
+;
+L0957:  RST  18H 
+        DEFB 0BH+80H 
+        JR   L0929 
+;
+;
+; Funktion "F" --> Find (TODO)
+;
+        DEFB 00H,09H,46H,0DH 
+        CALL L0A61 
+        LD   A,(DE) 
+        CP   4AH 
+        JR   Z,L0999 
+        CP   27H 
+        JR   Z,L096D 
+        JR   L098E 
+;
+L096D:  DEC  DE 
+        LD   A,(DE) 
+        CP   20H 
+        JR   Z,L097D 
+        EXX 
+        LD   (HL),A 
+        INC  HL 
+        LD   A,01H 
+        LD   (DE),A 
+        INC  DE 
+        EXX 
+        JR   L096D 
+;
+L097D:  DEC  DE 
+        LD   A,(DE) 
+        CP   4AH 
+        JR   Z,L0999 
+        CP   27H 
+        JR   Z,L096D 
+        CP   20H 
+        JR   Z,L09A2 
+        CALL L07F7 
+L098E:  LD   A,L 
+        EXX 
+        LD   (HL),A 
+        INC  HL 
+        LD   A,01H 
+        LD   (DE),A 
+        INC  DE 
+        EXX 
+        JR   L097D 
+;
+L0999:  EXX 
+        INC  HL 
+        XOR  A 
+        LD   (DE),A 
+        INC  DE 
+        EXX 
+        DEC  DE 
+        JR   L097D 
+;
+L09A2:  EXX 
+        LD   A,0FFH
+        LD   (DE),A 
+        EXX 
+        CALL ARGLD        ;ARG1-->HL ARG2-->DE ARG3-->BC 
+        LD   BC,0164H 
+L09AD:  CALL L0A61 
+        CALL L04AD 
+L09B3:  PUSH AF 
+        AND  A 
+        PUSH HL 
+        SBC  HL,DE 
+        POP  HL 
+        JR   NC,L09C4 
+        POP  AF 
+        JR   Z,L09DE 
+        CP   (HL) 
+        JR   Z,L09DE 
+        INC  HL 
+        JR   L09B3 
+;
+L09C4:  POP  AF 
+L09C5:  CALL L0A61 
+        EXX 
+        CALL L0A6A 
+        DEC  B 
+        JP   NZ,L09DB 
+        RST  18H 
+        DEFM " Not foun" 
+        DEFB 64H+80H      ;"d+80H 
+L09DB:  RST  18H 
+        DEFB 0DH+80H 
+        RET 
+;
+L09DE:  PUSH HL 
+        POP  IX 
+        LD   A,18H 
+        CP   H 
+        JR   NZ,L09EB 
+        LD   A,0D0H
+        CP   L 
+        JR   Z,L09F6 
+L09EB:  INC  HL 
+        CALL L04AD 
+        JR   Z,L09EB 
+        JR   NC,L09FC 
+        CP   (HL) 
+        JR   Z,L09EB 
+L09F6:  PUSH IX 
+        POP  HL 
+        INC  HL 
+        JR   L09AD 
+;
+L09FC:  PUSH IX 
+        POP  HL 
+        XOR  A 
+        ADD  A,B 
+        JR   Z,L0A06 
+        LD   (ARG1),HL 
+L0A06:  RST  18H 
+        DEFB 20H+80H 
+        CALL OUTHL 
+        RST  18H 
+        DEFB 3AH+80H      ;":+80H 
+        LD   B,04H 
+L0A0F:  LD   A,(HL) 
+        CALL OUTHEX 
+        INC  HL 
+        DJNZ L0A0F 
+        RST  18H 
+        DEFM " " 
+        DEFB 20H+80H 
+        PUSH IX 
+        POP  HL 
+        INC  HL 
+        DEC  C 
+        JR   NZ,L09AD 
+        RST  08H 
+        CP   51H 
+        JR   Z,L09C5 
+        LD   C,64H 
+        JR   L09AD 
+;
+;
+        DEFB 0FFH,0FFH    ;Platzhalter 2 Byte
+;
+;
+L0A2B:  LD   HL,(ARG1) 
+        JP   Z,L0DF0 
+L0A31:  IN   A,(P05) 
+        RES  5,A 
+        JR   L0A3C 
+;
+L0A37:  IN   A,(P05) 
+        SET  5,A 
+        DI 
+L0A3C:  RST  18H 
+        DEFB 07H+80H 
+        OUT  (P05),A 
+        RET 
+;
+;
+; Funktion "H" --> I/O (TODO)
+;
+        DEFB 00H,09H,48H,0DH 
+        RST  18H 
+        DEFM " I/O Byte" 
+        DEFB 20H+80H 
+        LD   DE,1821H     ;Speicherplatz vom I/O-Byte 
+        LD   A,(DE)       ;LD A,I/O-Byte
+        CALL OUTHEX 
+        INC  DE 
+        JP   L067E 
+;
+L0A5B:  CALL L0404 
+        JP   L0A31 
+;
+L0A61:  EXX 
+        LD   HL,18D0H 
+        LD   DE,18E8H 
+        EXX 
+        RET 
+;
+L0A6A:  LD   (HL),C 
+        PUSH HL 
+        XOR  A 
+        EX   DE,HL 
+        SBC  HL,DE 
+        LD   B,H 
+        LD   C,L 
+        POP  HL 
+        DEC  DE 
+        LDIR 
+        EXX 
+        RET 
+;
+;
+        DEFB 0FFH,0FFH
+        DEFB 0FFH         ;Platzhalter 3 Byte
+;
+;
+L0A7B:  LD   HL,023AH 
+        LD   B,03H 
+L0A80:  LD   A,(DE) 
+        CP   (HL) 
+        RET  NZ 
+        INC  HL 
+        INC  DE 
+        DJNZ L0A80 
+        LD   A,(DE) 
+        LD   L,A 
+        INC  DE 
+        LD   A,(DE) 
+        LD   H,A 
+        RET 
+;
+;
+; Einsprungpunkt fuer RST 18H   (Zeichenkettenausgabe)
+; ---------------------------
+;
+RST18:  EX   (SP),HL 
+        PUSH AF 
+RST18A: LD   A,(HL) 
+        INC  HL 
+        RST  10H 
+        RLCA 
+        JR   NC,RST18A 
+        POP  AF 
+        EX   (SP),HL 
+        RET 
+;
+;
+; ??? (TODO)
+;
+        OUT  (P05),A 
+        RET 
+;
+;
+        DEFB 0FFH,0FFH
+        DEFB 0FFH,0FFH    ;Platzhalter 4 Byte
+;
+;
+; Funktion "I" --> Init (TODO)
+;
+        DEFB 00H,09H,49H,0DH 
+        LD   HL,1858H 
+        LD   B,26H 
+L0AA8:  LD   (HL),00H 
+        INC  HL 
+        DJNZ L0AA8 
+        RST  18H 
+        DEFM " SP" 
+        DEFB 20H+80H 
+        CALL L0ACE 
+        LD   (1877H),HL 
+        JR   L0ACA 
+;
+;
+; Funktion "O" --> RAM-Test (TODO)
+;
+        DEFB 00H,09H,4FH,0DH 
+        LD   HL,(ARG1) 
+        RST  18H 
+        DEFM " ME" 
+        DEFB 20H+80H 
+        CALL L0ACE 
+        DEC  HL 
+L0ACA:  JP   OUTHL 
+;
+;
+        DEFB 0FFH         ;Platzhalter 1 Byte
+;
+;
+L0ACE:  LD   A,(HL) 
+        CPL 
+        LD   (HL),A 
+        CP   (HL) 
+        RET  NZ 
+        CPL 
+        LD   (HL),A 
+        INC  HL 
+        JR   L0ACE 
+;
+;
+; Tabelle fuer IO-Befehle (17x Port, Befehl, Port, Befehl, ...)
+;
+TABIO:  DEFB 00H,0F8H,01H,37H
+        DEFB 01H,4EH,02H,47H
+        DEFB 02H,32H,0BH,0CFH
+        DEFB 0BH,00H,0AH,0CFH
+        DEFB 0AH,0C5H,08H,0AH
+        DEFB 06H,0CFH,06H,0FFH
+        DEFB 06H,07H,07H,0CFH
+        DEFB 07H,84H,07H,07H
+        DEFB 14H,00H,0FFH
+;
+;
+; Funktion "K" --> Kassette save (TODO)
+;
+        DEFB 00H,09H,4BH,0DH 
+        CALL L0B97 
+        CALL L0A37 
+        DEC  HL 
+        LD   (187EH),HL 
+        LD   HL,1896H 
+        LD   (1880H),HL 
+        CALL L0BE1 
+        CALL L0BF7 
+        LD   DE,187EH 
+        LD   HL,18B1H 
+        LD   BC,0004H 
+        LDIR 
+        CALL L0BF7 
+        JP   L0A5B 
+;
+;
+; Funktion "Z" --> Kassette verify (TODO)
+;
+        DEFB 00H,09H,5AH,0DH 
+        XOR  A 
+        DEC  A 
+        JR   L0B33 
+;
+;
+; Funktion "L" --> Kassette load (TODO)
+;
+        DEFB 00H,09H,4CH,0DH 
+        ADD  A,D 
+L0B33:  EX   AF,AF' 
+        CALL L0B97 
+        CALL L0A37 
+        LD   (1880H),HL 
+        LD   HL,18D5H 
+        LD   (187EH),HL 
+L0B43:  CALL L0BE1 
+L0B46:  CALL L0C81 
+        LD   HL,18B6H 
+        LD   DE,1896H 
+        LD   B,08H 
+L0B51:  LD   A,(DE) 
+        CP   (HL) 
+        JR   NZ,L0B46 
+        INC  HL 
+        INC  DE 
+        DJNZ L0B51 
+        LD   B,13H 
+L0B5B:  LD   A,(DE) 
+        CP   (HL) 
+        JR   Z,L0B63 
+        CP   20H 
+        JR   NZ,L0B85 
+L0B63:  INC  HL 
+        INC  DE 
+        DJNZ L0B5B 
+        LD   E,7EH 
+        LD   C,04H 
+        LDIR 
+        LD   HL,0DB7H 
+        EX   AF,AF' 
+        INC  A 
+        JR   Z,L0B76 
+        LD   L,0BDH
+L0B76:  EX   AF,AF' 
+        CALL L0D86 
+        CALL L0C81 
+        CALL L0DC9 
+        RST  18H 
+        DEFB 0DH+80H 
+        JP   L0A2B 
+;
+L0B85:  CALL L0DC9 
+        JR   NZ,L0B43 
+        CALL L0D83 
+        JR   L0B43 
+;
+;
+        DEFB 0FFH         ;Platzhalter 1 Byte
+;
+;
+        IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
+;
+; UP 'Zeitschleife 18 ms' zur Tastaturentprellung
+; -----------------------------------------------
+;
+        PUSH BC
+        LD   BC,0481H     ;Zeitkonstante fuer 18ms
+        JP   MS30A
+;
+        ENDIF
+        IFDEF MONI11      ;Monitor 10/88 - BWS-CPLD-Version 2011
+;
+; die Zeitschleife gibt es im Moni 2011 nicht mehr ...
+;
+        DEFB 0FFH
+        DEFB 0FFH,0FFH,0FFH
+        DEFB 0FFH,0FFH,0FFH
+;
+        ENDIF
+        IFDEF MONI21      ;Monitor 10/88 - BWS-CPLD-Version 2021
+;
+; die Zeitschleife gibt es im Moni 2021 nicht mehr ...
+;
+        DEFB 0FFH
+        DEFB 0FFH,0FFH,0FFH
+        DEFB 0FFH,0FFH,0FFH
+;
+        ENDIF
+;
+;
+L0B97:  LD   HL,(ARG2) 
+        LD   (18B1H),HL 
+        LD   HL,(ARG1) 
+        LD   (18B3H),HL 
+        LD   C,50H 
+L0BA5:  LD   A,(DE) 
+        CP   3AH 
+        DEC  DE 
+        JR   Z,L0BA5 
+        CP   2AH 
+        JR   NZ,L0BB3 
+        LD   A,(DE) 
+        DEC  DE 
+        LD   C,44H 
+L0BB3:  CP   22H 
+        LD   HL,1896H 
+        LD   B,08H 
+L0BBA:  LD   (HL),4EH 
+        INC  HL 
+        DJNZ L0BBA 
+        LD   B,10H 
+        JR   NZ,L0BCF 
+L0BC3:  LD   A,(DE) 
+        CP   22H 
+        JR   Z,L0BCF 
+        LD   (HL),A 
+        DEC  DE 
+        INC  HL 
+        DJNZ L0BC3 
+        JR   L0BD4 
+;
+L0BCF:  LD   (HL),20H 
+        INC  HL 
+        DJNZ L0BCF 
+L0BD4:  LD   (HL),3AH 
+        INC  HL 
+        LD   (HL),20H 
+        INC  HL 
+        LD   (HL),C 
+        LD   L,0B5H
+        LD   (HL),4CH 
+        INC  HL 
+        RET 
+;
+L0BE1:  RST  18H 
+        DEFB 0DH+80H 
+        LD   HL,0DB1H 
+L0BE6:  RST  18H 
+        DEFB 0EH 
+        DEFM "31" 
+        DEFB 11H+80H 
+        LD   B,06H 
+L0BED:  LD   A,(HL) 
+        RST  10H 
+        INC  HL 
+        DJNZ L0BED 
+        RST  18H 
+        DEFM " " 
+        DEFB 10H,0A0H 
+        RET 
+;
+L0BF7:  LD   HL,(1880H) 
+        CALL L0C0B 
+L0BFD:  EX   DE,HL 
+        LD   HL,(187EH) 
+        AND  A 
+        SBC  HL,DE 
+        EX   DE,HL 
+        RET  C 
+        CALL L0C10 
+        JR   L0BFD 
+;
+L0C0B:  LD   DE,07D0H 
+        JR   L0C13 
+;
+L0C10:  LD   DE,000EH 
+L0C13:  LD   B,48H 
+L0C15:  DJNZ L0C15 
+        CALL L0C7A 
+        DEC  DE 
+        LD   A,E 
+        OR   D 
+        JR   NZ,L0C13 
+        LD   C,02H 
+L0C21:  LD   B,21H 
+L0C23:  DJNZ L0C23 
+        CALL L0C7A 
+        DEC  C 
+        LD   E,L 
+        LD   D,H 
+        JR   NZ,L0C21 
+        NOP 
+        PUSH DE 
+        POP  IX 
+        LD   B,08H 
+L0C33:  DJNZ L0C33 
+        CALL L0C59 
+        LD   B,05H 
+L0C3A:  DJNZ L0C3A 
+        LD   C,10H 
+L0C3E:  LD   E,(HL) 
+        INC  HL 
+        LD   D,(HL) 
+        ADD IX,DE 
+        INC  HL 
+        PUSH BC 
+        CALL L0C59 
+        POP  BC 
+        DEC  C 
+        JR   Z,L0C52 
+        LD   B,03H 
+L0C4E:  DJNZ L0C4E 
+        JR   L0C3E 
+;
+L0C52:  PUSH IX 
+        POP  DE 
+        LD   B,07H 
+L0C57:  DJNZ L0C57 
+L0C59:  LD   C,10H 
+L0C5B:  SRL  D 
+        RR   E 
+        JR   NC,L0C68 
+        LD   B,03H 
+L0C63:  DJNZ L0C63 
+        NOP 
+        JR   L0C6B 
+;
+L0C68:  CALL L0C7A 
+L0C6B:  LD   B,0FH 
+L0C6D:  DJNZ L0C6D 
+        CALL L0C7A 
+        DEC  C 
+        RET  Z 
+        LD   B,0BH 
+L0C76:  DJNZ L0C76 
+        JR   L0C5B 
+;
+L0C7A:  IN   A,(P05) 
+        XOR  40H 
+        OUT  (P05),A 
+        RET 
+;
+L0C81:  LD   IY,1882H 
+        LD   HL,(1880H) 
+        EXX 
+        LD   HL,0100H 
+        EXX 
+L0C8D:  CALL L0CBD 
+        EXX 
+        JR   NZ,L0C99 
+        DEC  H 
+        LD   H,01H 
+        JR   Z,L0CAC 
+        INC  L 
+L0C99:  LD   H,01H 
+        EXX 
+        LD   (IY+00H),L 
+        LD   (IY+01H),H 
+        INC  IY 
+        INC  IY
+        DEFB 0FDH,7DH     ;= undokumentierter Befehl LD A,IYL
+        SUB  94H 
+        RET  Z 
+        EXX 
+L0CAC:  EXX 
+        EX   DE,HL 
+        LD   HL,(187EH) 
+        AND  A 
+        SBC  HL,DE 
+        EX   DE,HL 
+        RET  C 
+        JR   L0C8D 
+;
+;
+        DEFB 0FFH,0FFH
+        DEFB 0FFH,0FFH
+        DEFB 0FFH         ;Platzhalter 5 Byte
+;
+;
+L0CBD:  CALL L0D5A 
+        CALL L0D52 
+        LD   C,07H 
+L0CC5:  LD   DE,060BH 
+        LD   A,02H 
+L0CCA:  DEC  A 
+        JR   NZ,L0CCA 
+        CALL L0D5A 
+L0CD0:  CALL L0D5A 
+        JR   NZ,L0CBD 
+        DEC  D 
+        JR   NZ,L0CD0 
+        DEC  C 
+        JR   Z,L0CE7 
+L0CDB:  IN   A,(P05) 
+        XOR  B 
+        BIT  7,A 
+        JR   NZ,L0CC5 
+        DEC  E 
+        JR   NZ,L0CDB 
+        JR   L0CBD 
+;
+L0CE7:  CALL L0D52 
+        LD   A,2CH 
+L0CEC:  DEC  A 
+        JR   NZ,L0CEC 
+        CALL L0D5A 
+        JR   NZ,L0CE7 
+        CALL L0D52 
+        LD   A,12H 
+L0CF9:  DEC  A 
+        JR   NZ,L0CF9 
+        CALL L0D64 
+        LD   C,10H 
+        PUSH DE 
+        POP  IX 
+        LD   A,0DH 
+L0D06:  DEC  A 
+        JR   NZ,L0D06 
+L0D09:  CALL L0D64 
+        ADD IX,DE 
+        PUSH BC 
+        LD   C,L 
+        LD   B,H 
+        LD   HL,(187EH) 
+        XOR  A 
+        SBC  HL,BC 
+        LD   L,C 
+        LD   H,B 
+        POP  BC 
+        JR   C,L0D32 
+        EX   AF,AF' 
+        JR   Z,L0D23 
+        LD   (HL),E 
+        INC  HL 
+        LD   (HL),D 
+        DEC  HL 
+L0D23:  EX   AF,AF' 
+        LD   A,E 
+        CP   (HL) 
+        INC  HL 
+        LD   A,D 
+        JR   NZ,L0D2D 
+        CP   (HL) 
+        JR   Z,L0D38 
+L0D2D:  EXX 
+        INC  H 
+        EXX 
+        JR   L0D38 
+;
+L0D32:  LD   A,04H 
+L0D34:  DEC  A 
+        JR   NZ,L0D34 
+        DEC  HL 
+L0D38:  INC  HL 
+        LD   A,02H 
+L0D3B:  DEC  A 
+        JR   NZ,L0D3B 
+        DEC  C 
+        JR   NZ,L0D09 
+        CALL L0D64 
+        EX   DE,HL 
+        PUSH IX 
+        POP  BC 
+        XOR  A 
+        SBC  HL,BC 
+        EX   DE,HL 
+        RET 
+;
+TASTE:  CALL UPTAST 
+        JR   L0DAD 
+;
+L0D52:  IN   A,(P05) 
+        XOR  B 
+        BIT  7,A 
+        JR   Z,L0D52 
+        RET 
+;
+L0D5A:  IN   A,(P05) 
+        XOR  B 
+        BIT  7,A 
+        PUSH AF 
+        XOR  B 
+        LD   B,A 
+        POP  AF 
+        RET 
+;
+L0D64:  PUSH HL 
+        LD   L,10H 
+L0D67:  CALL L0D5A 
+        JR   NZ,L0D6F 
+        XOR  A 
+        JR   L0D70 
+;
+L0D6F:  SCF 
+L0D70:  RR   D 
+        RR   E 
+        CALL L0D52 
+        DEC  L 
+        JR   Z,L0D81 
+        LD   A,12H 
+L0D7C:  DEC  A 
+        JR   NZ,L0D7C 
+        JR   L0D67 
+;
+L0D81:  POP  HL 
+        RET 
+;
+L0D83:  LD   HL,0DC3H 
+L0D86:  CALL L0BE6 
+        LD   HL,18BEH 
+        LD   B,13H 
+L0D8E:  LD   A,(HL) 
+        RST  10H 
+        INC  HL 
+        DJNZ L0D8E 
+        RST  18H 
+        DEFM "   " 
+        DEFB 20H+80H 
+        LD   HL,(18D3H) 
+        LD   (ARG1),HL 
+        CALL OUTHL 
+        RST  18H 
+        DEFM " " 
+        DEFB 20H+80H 
+        LD   HL,(18D1H) 
+        LD   (ARG2),HL 
+        JP   OUTHL 
+;
+L0DAD:  RET  Z 
+        SET  7,A 
+        RET 
+;
+;
+; Texte fuer Kassettenarbeit
+;
+        DEFM "WARTEN"
+        DEFM "VERIFY"
+        DEFM "LADEN "
+        DEFM "FOUND "
+;
+;
+; ??? (TODO)
+;
+L0DC9:  LD   DE,1882H
+        DEFB 0FDH,7DH     ;= undokumentierter Befehl LD A,IYL
+        SUB  E 
+        RET  Z 
+        RST  18H 
+        DEFB 0DH+80H 
+        CALL ERROR 
+        RRCA 
+        LD   B,A 
+        EXX 
+        SUB  L 
+        EXX 
+        JR   NZ,L0DE1 
+        RST  18H 
+        DEFM "RAM" 
+        DEFB 3AH+80H      ;":+80H 
+L0DE1:  LD   A,(DE) 
+        INC  DE 
+        LD   L,A 
+        LD   A,(DE) 
+        INC  DE 
+        LD   H,A 
+        RST  18H 
+        DEFB 20H+80H 
+        CALL OUTHL 
+        DJNZ L0DE1 
+        DEC  B 
+        RET 
+;
+L0DF0:  CALL L0A31 
+        EX   DE,HL 
+        CALL L0A7B 
+        RET  NZ 
+        JP   (HL) 
+;
+V24:    PUSH HL 
+        PUSH DE 
+        PUSH BC 
+        PUSH AF 
+        LD   HL,1820H 
+        LD   BC,7FFFH 
+        BIT  4,(HL) 
+        JR   NZ,L0E0C 
+        BIT  5,(HL) 
+        JR   Z,L0E12 
+        LD   C,B 
+L0E0C:  AND  B 
+        JP   PE,L0E12 
+        SET  7,A 
+L0E12:  XOR  C 
+        LD   C,A 
+        LD   A,(HL) 
+        AND  07H 
+        LD   B,A 
+        LD   A,01H 
+L0E1A:  ADD  A,A 
+        DJNZ L0E1A 
+        LD   D,A 
+        BIT  6,(HL) 
+        JR   NZ,L0E28 
+L0E22:  IN   A,(P08) 
+        BIT  2,A 
+        JR   NZ,L0E22 
+L0E28:  LD   B,0AH 
+        BIT  3,(HL) 
+        JR   Z,L0E2F 
+        INC  B 
+L0E2F:  SCF 
+L0E30:  LD   E,D 
+        SET  1,A 
+        JR   NC,L0E37 
+        RES  1,A 
+L0E37:  OUT  (P08),A 
+        IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
+        PUSH HL
+        POP  HL
+        LD   A,A
+        ENDIF
+        IFDEF MONI11      ;Monitor 10/88 - BWS-CPLD-Version 2011
+        LD   L,(HL)
+        NOP
+        NOP
+        ENDIF
+        IFDEF MONI21      ;Monitor 10/88 - BWS-CPLD-Version 2021
+        LD   L,(HL)
+        NOP
+        NOP
+        ENDIF
+        DEC  E 
+        JR   NZ,L0E37 
+        SRL  C 
+        DJNZ L0E30 
+        POP  AF 
+        POP  BC 
+        POP  DE 
+        POP  HL 
+        RET 
+;
+;
+; Funktion ":" --> Argument Anzeige (TODO)
+;
+        DEFB 00H,09H,3AH,0DH 
+        CALL ARGLD        ;ARG1-->HL ARG2-->DE ARG3-->BC
+		CALL L07F1
+        RST  18H 
+        DEFB 20H+80H 
+        EX   DE,HL 
+        CALL L07F1 
+        LD   H,B 
+        LD   L,C 
+        RST  18H 
+        DEFB 20H+80H 
+        CALL L07F1 
+        RST  18H 
+        DEFB 0DH+80H 
+        RET 
+;
+;
+; Funktion "p" --> RAM loeschen
+;
+        DEFB 00H,09H,70H,0DH 
+        LD   HL,1858H 
+        LD   (HL),0FFH
+        LD   DE,1859H 
+        IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
+        LD   BC,0E7A7H    ;loeschen bis 0FFFFH
+        ENDIF
+        IFDEF MONI11      ;Monitor 10/88 - BWS-CPLD-Version 2011
+        LD   BC,0E6A7H    ;loeschen bis 0FEFFH
+        ENDIF
+        IFDEF MONI21      ;Monitor 10/88 - BWS-CPLD-Version 2021
+        LD   BC,0E6A7H    ;loeschen bis 0FEFFH
+        ENDIF
+        LDIR 
+        RST  18H 
+        DEFM " Clear RAM" 
+        DEFB 0DH+80H 
+        RET
+;
+;
+; Funktion "U" --> Port lesen (TODO)
+;
+        DEFB 00H,09H,55H,0DH;
+        LD   HL,(ARG1) 
+        LD   C,L 
+        LD   DE,(181AH) 
+        INC  DE 
+        CALL L07F7 
+L0E90:  LD   (1800H),DE 
+        RST  18H 
+        DEFB 2AH+80H      ;"*+80H 
+        IN   A,(C) 
+        CALL OUTHEX 
+L0E9B:  CALL L07FA 
+        JR   Z,L0E9B 
+        CP   0D1H
+        RET  Z 
+        JR   L0E90 
+;
+L0EA5:  LDI 
+        DEC  DE 
+        DEC  DE 
+        JP   PE,L0EA5 
+        RET 
+;
+;
+        IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
+;
+        DEFB 0FFH,0FFH
+        DEFB 0FFH,0FFH
+        DEFB 0FFH,0FFH
+        DEFB 0FFH         ;Platzhalter 7 Byte
+;
+        ENDIF
+;
+        IFDEF MONI11      ;Monitor 10/88 - BWS-CPLD-Version 2011
+;
+; Funktion "8" --> PIO2-Karte: Bank 3 einschalten
+;
+        DEFB 00H,09H,38H,0DH 
+        JP   FKT8 
+;
+        ENDIF
+        IFDEF MONI21      ;Monitor 10/88 - BWS-CPLD-Version 2021
+;
+; Funktion "8" --> PIO2-Karte: Bank 3 einschalten
+;
+        DEFB 00H,09H,38H,0DH 
+        JP   FKT8 
+;
+        ENDIF
+;
+;
+; UP 'Joy', Abfrage Joystick 1
+; ----------------------------
+;
+L0EB4:  PUSH BC 
+        IN   A,(P05) 
+        LD   C,A 
+        RES  1,A 
+        OUT  (P05),A 
+        IN   A,(P04) 
+        LD   B,A 
+        LD   A,C 
+        OUT  (P05),A 
+        LD   A,B 
+        NOP 
+        AND  1FH 
+        POP  BC 
+        RET 
+;
+;
+; Funktion "?" --> Help
+;
+        DEFB 00H,09H,3FH,0DH 
+        RST  18H 
+        DEFM "Help:" 
+        DEFB 0DH+80H 
+        LD   HL,0200H 
+        LD   BC,0FE00H
+L0ED9:  XOR  A 
+        CPIR 
+        RET  PO 
+        LD   A,09H 
+        CP   (HL) 
+        JR   NZ,L0ED9 
+        INC  HL 
+        LD   D,(HL) 
+        INC  HL 
+        LD   A,0DH 
+        CP   (HL) 
+        JR   NZ,L0ED9 
+        LD   A,D 
+        RST  10H          ;Ausgabe des Kennbuchstabens
+        RST  18H 
+        DEFM "  " 
+        DEFB 20H+80H 
+        JR   L0ED9 
+;
+;
+; weitere Bearb. fuer RST 10H   (Ausgabekanal, normal Bildschirm)
+; ---------------------------
+;
+RST10A: LD   HL,1820H 
+        BIT  7,(HL) 
+        JR   NZ,RST10B 
+        AND  7FH 
+RST10B: INC  HL 
+        CP   18H 
+        JR   Z,L0F07 
+        CP   19H 
+        JR   NZ,RST10C 
+        LD   (HL),11H 
+        DEFB 21H          ;LD HL,0EECBH + nxt. Befehl ueberspringen!!!
+L0F07:  SET 5,(HL)        ;Code = 0CBH, 0EEH
+        JR   RST10D 
+;
+RST10C: BIT  4,(HL) 
+        CALL NZ,FKT33     ;Funktion auf Adresse 0033H - Ausgabe ueber Bildschirm
+        BIT  5,(HL) 
+        CALL NZ,V24 
+        BIT  6,(HL) 
+        CALL NZ,0FFFFH 
+        BIT  7,(HL) 
+        CALL NZ,18F3H     ;Sprung zum UP User-Ausgabe
+RST10D: POP  AF 
+        POP  HL 
+        RET 
+;
+;
+; Funktion "=" --> Bildschirminhalt ablegen (TODO)
+;
+        DEFB 00H,09H,3DH,0DH 
+        RST  18H 
+        DEFB 0BH,06H+80H 
+        LD   HL,(1800H) 
+        RST  18H 
+        DEFB 0EH 
+        DEFM "0059" 
+        DEFB 2FH+80H      ;"/+80H 
+        RST  08H 
+        RST  10H 
+        LD   (1800H),HL 
+        CP   38H 
+        RET  NC 
+        CP   30H 
+        RET  C 
+        SUB  30H 
+        LD   B,A 
+        INC  B 
+        LD   DE,0800H 
+        LD   HL,9FFFH 
+L0F48:  ADD  HL,DE 
+        DJNZ L0F48 
+        EX   DE,HL 
+        PUSH HL 
+        POP  BC 
+        LD   HL,1000H 
+        JP   L0EA5
+;
+;
+; Funktion "/" --> Bildschirmkopie zurueckschreiben (TODO)
+;
+        DEFB 00H,09H,2FH,0DH 
+        LD   HL,9800H 
+        LD   A,(ARG1) 
+        CP   08H 
+        RET  NC 
+        INC  A 
+        LD   DE,0800H 
+        LD   B,A 
+L0F66:  ADD  HL,DE 
+        DJNZ L0F66 
+L0F69:  LD   DE,17FFH 
+L0F6C:  LD   BC,0800H 
+        PUSH HL 
+        CALL L0EA5 
+        RST  18H 
+        DEFB 01H,0BH,11H+80H 
+        EX   DE,HL 
+        POP  HL 
+        CALL L07F1 
+        RST  18H 
+        DEFB 2DH+80H      ;"-+80H 
+        EX   DE,HL 
+        DEC  HL 
+        CALL L07F1 
+        INC  HL 
+        RST  18H 
+        DEFB 10H+80H 
+        RST  08H 
+        CP   0BH 
+        JR   Z,L0F69 
+        CP   0AH 
+        RET  NZ 
+        LD   BC,0F000H
+        ADD  HL,BC 
+        JR   L0F69 
+;
+        IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
+;
+; ??? (TODO)
+;
+L0F94:  JR   L0F6C
+;
+;
+; ??? (TODO)
+;
+L0F96:  CALL ARGLD        ;ARG1-->HL ARG2-->DE ARG3-->BC
+        EX   DE,HL
+        INC  HL
+        XOR  A
+        SBC  HL,DE
+        LD   BC,0FFFFH
+L0FA1:  LD   A,(DE)
+        XOR  B
+        LD   B,A
+        RRCA
+        RRCA
+        RRCA
+        RRCA
+        AND  0FH
+        XOR  B
+        LD   B,A
+        RRCA
+        RRCA
+        RRCA
+        PUSH AF
+        AND  1FH
+        XOR  C
+        LD   C,A
+        POP  AF
+        PUSH AF
+        RRCA
+        AND  0F0H
+        XOR  C
+        LD   C,A
+        POP  AF
+        AND  0E0H
+        XOR  B
+        LD   B,C
+        LD   C,A
+        INC  DE
+        DEC  HL
+        LD   A,H
+        OR   L
+        JR   NZ,L0FA1
+        PUSH BC
+        RST  18H
+        DEFM " CRC"
+        DEFB 20H+80H
+        POP  HL
+        JP   OUTHL
+;
+        DEFB 0FFH,0FFH,0FFH,0FFH
+        DEFB 0FFH,0FFH,0FFH,0FFH
+;       Platzhalter 8 Byte
+;
+;
+; Funktion "r" --> Basic-Warmstart
+;
+        DEFB 00H,09H,72H,0DH 
+        LD   A,02H
+        OUT  (P14),A
+        JP   5FD5H        ;Sprung ins Basic-Programm
+;
+;
+; Funktion "X" --> Programmpaket X
+;
+        DEFB 00H,09H,58H,0DH 
+        JP   JUMPX
+;
+;
+; Funktion "b" --> Basic-Kaltstart
+;
+        DEFB 09H,62H,0DH  ;die 00H wird vom letzten Befehl genutzt
+        LD   A,02H
+        OUT  (P14),A
+        JP   5FCCH        ;Sprung ins Basic-Programm
+;
+        ENDIF             ;Monitor 10/88 - Originalversion 1988
+        IFDEF MONI11      ;Monitor 10/88 - BWS-CPLD-Version 2011
+;
+; Funktion "!" --> Farbbyte einstellen
+;
+        DEFB 00H,09H,21H,0DH
+        LD   A,(ARG1) 
+        OR   A
+        JR   NZ,FINIT1 
+;
+;
+; Farb-Initialisierung des CPLD
+;
+FINIT:  LD   A,02H        ;Farbbyte: Init.-Wert nach Reset = 02H
+FINIT1: PUSH AF 
+        XOR  A 
+        LD   (181FH),A 
+        POP  AF 
+        LD   C,0F0H
+        IN   B,(C) 
+        INC  B 
+        RET  Z 
+        DEC  B 
+        LD   D,B 
+        SET  2,D 
+        LD   HL,1000H 
+        LD   E,(HL) 
+        OUT  (C),D 
+        LD   (HL),A 
+        CP   (HL) 
+        OUT  (C),B 
+        LD   (HL),E 
+        RET  NZ 
+        OUT  (C),D 
+        PUSH BC 
+        LD   DE,1001H 
+        LD   BC,07FFH 
+        LDIR 
+        LD   A,(HL) 
+        POP  BC 
+        OUT  (C),B 
+        LD   (181FH),A 
+        RET 
+;
+;
+; Funktion "7" --> PIO2-Karte: Bank 2 einschalten
+;
+        DEFB 00H,09H,37H,0DH 
+        LD   A,20H        ;ehemals 10H, war falsch!!
+        OUT  (P0F),A 
+        JP   2000H        ;Programmstart von UserProg auf 2000H
+;
+;
+; Funktion "r" --> Basic-Warmstart
+;
+        DEFB 00H,09H,72H,0DH 
+        LD   A,02H
+        OUT  (P14),A
+        JP   5FD5H        ;Sprung ins Basic-Programm
+;
+;
+; Funktion "X" --> Programmpaket X
+;
+        DEFB 00H,09H,58H,0DH 
+        JP   JUMPX
+;
+;
+; Funktion "b" --> Basic-Kaltstart
+;
+        DEFB 09H,62H,0DH  ;die 00H wird vom letzten Befehl genutzt
+        LD   A,02H
+        OUT  (P14),A
+        JP   5FCCH        ;Sprung ins Basic-Programm
+;
+        ENDIF             ;Monitor 10/88 - BWS-CPLD-Version 2011
+        IFDEF MONI21      ;Monitor 10/88 - BWS-CPLD-Version 2021
+;
+; Funktion "!" --> Farbbyte einstellen
+;
+        DEFB 00H,09H,21H,0DH
+        LD   A,(ARG1) 
+        OR   A
+        JR   NZ,FINIT1 
+;
+;
+; Farb-Initialisierung des CPLD
+;
+FINIT:  LD   A,4FH        ;Farbbyte: Init.-Wert nach Reset = 4FH
+FINIT1: PUSH AF 
+        XOR  A 
+        LD   (181FH),A 
+        POP  AF 
+        LD   C,0F0H
+        IN   B,(C) 
+        INC  B 
+        RET  Z 
+        DEC  B 
+        LD   D,B 
+        SET  2,D 
+        LD   HL,1000H 
+        LD   E,(HL) 
+        OUT  (C),D 
+        LD   (HL),A 
+        CP   (HL) 
+        OUT  (C),B 
+        LD   (HL),E 
+        RET  NZ 
+        OUT  (C),D 
+        PUSH BC 
+        LD   DE,1001H 
+        LD   BC,07FFH 
+        LDIR 
+        LD   A,(HL) 
+        POP  BC 
+        OUT  (C),B 
+        LD   (181FH),A 
+        RET 
+;
+;
+; Funktion "7" --> PIO2-Karte: Bank 2 einschalten
+;
+        DEFB 00H,09H,37H,0DH 
+        LD   A,20H        ;ehemals 10H, war falsch!! 
+        OUT  (P0F),A 
+        JP   2000H        ;Programmstart von UserProg auf 2000H
+;
+;
+; Funktion "X" --> ROM-Bank aufrufen
+;
+        DEFB 00H,09H,58H,0DH 
+STARTX: LD   A,0F6H
+        OUT  (P0E),A 
+        LD   DE,1900H 
+        LD   HL,0A000H
+        LD   BC,0700H 
+        LDIR 
+        LD   A,00H 
+        OUT  (P0E),A 
+        JP   1900H        ;Programmstart ROM-Bank
+;
+        DEFB 0FFH,0FFH    ;Platzhalter 2 Byte
+;
+        ENDIF             ;Monitor 10/88 - BWS-CPLD-Version 2021
+;
+;
+; Funktion "<SPACE>" --> nix tun...
+;
+        DEFB 00H,09H,20H,0DH 
+        RET 
+;
+;
+; Funktion "<ENTER>" --> nix tun...
+;
+        DEFB 00H,09H,0DH,0DH 
+        RET
+;
+;
+        .DEPHASE
+        END
+;
