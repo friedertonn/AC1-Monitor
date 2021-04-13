@@ -1,0 +1,861 @@
+                                                                
+                                                                
+                                                                
+                                                                
+                                                                
+                                                                
+      AC 1   M O N I T O R   SCCH   Version 10/88               
+                                                                
+                                                                
+                                                                
+                                                                
+                                                                
+                                                                
+Der Monitor 10/88 belegt 4kB Speicher im Adressbereich          
+0 - 0FFF H                                                      
+
+                                                                
+Inbetriebnahme  AC 1:                                           
+                                                                
+Monitor auf 4 K EPROM programmieren. Das Betriebsystem für       
+Computer AC 1 stellt weitgehend eine Entwicklung des SCCH       
+dar, modifiziert von J. Beisler, Leipzig.                          
+Wichtige Routinen, RST - Befehle und Sprungverteiler sind        
+kompatibel zum Monitor V.3.1 von Heyder. Die im Funkammateur     
+veröffentlichten AC 1 - Programme bleiben somit lauffähig.      
+                                                                
+                                                                
+Funktionen Monitor V.10/88:                                     
+                                                                
+Der SCCH - Monitor umfasst das Betriebsystem und einen          
+eingebauten Maschinenspache - Monitor (Debugger). Das            
+Betriebssystem (Software) dient der Verbindung der Computer-    
+hardware mit dem Nutzerprogramm (Anwendersoftware).             
+Es realisiert die Eingabe/Ausgabe (Tastatur, Bildschirm,         
+Kassetteninterface). Die Verwaltung des Speichers ist er-        
+weiterungsfähig. Die nutzbaren Betriebsroutinen und die          
+Belegung des Arbeitsspeichers sind in Tabellen im Anhang        
+zu entnehmen.                                                   
+                                                                
+                                                                
+EINSCHALTEN:                                                    
+                                                                
+Nach dem Einschalten des Computers übernimmt der SCCH -         
+Monitor die Initialisierung des Systems und meldet sich mit     
+der Überschriftszeile und zwei Zeilen weiter mit dem Prompt-    
+symbol (Doppelkreuz), dahinter blinkt der Kursor. Das Betriebs-   
+system befindet sich jetzt im Maschinensprache - Monitor,       
+es lassen sich Befehle des Debuggers aufrufen, Anwender-         
+programme laden oder in eine andere Betriebssystemebene         
+springen (Basicinterpreter, Programmpaket X).                   
+                                                                
+                                                                
+TASTATUR:                                                       
+                                                                
+Neben der Eingabe von Zeichen und Zahlen erfolgt in             
+Verbindung mit der Control - Taste die Eingabe von Steuer-      
+zeichen. Diese sind notwendig, um z.B. fehlerhafte Eingaben        
+zu korrigieren (Zeichenüberschreiben, einfügen, löschen u.s.w.)   
+                                                                
+STEUER-/EDITIER-/KURSORTASTEN: (Taste Control und Taste Buch-   
+                                staben gleichzeitig drücken!)   
+                                                                
+CODE:       TASTE:       FUNKTIONEN:                            
+                                                                
+01 H          A          Home, Kursor oben links                 
+                                                                
+02 H          B          Bildschirm ab Kursor löschen           
+                                                                
+03 H          C          Zeile ab Kursorposition löschen        
+                                                                
+04 H          D          Delete; 1 Zeichen löschen, Zeile        
+                         rückt nach links                       
+                                                                
+05 H          E          Insert; Space einfügen, Zeile           
+                         rückt nach rechts                      
+                                                                
+06 H          F          Kursor an den Anfang der Zeile         
+                                                                
+07 H          G          Bel; akustisches Signal                
+                                                                
+08 H          H          Kursor nach links                      
+                                                                
+09 H          I          Kursor nach rechts                     
+                                                                
+0A H          J          Kursor nach unten                      
+                                                                
+0B H          K          Kursor nach oben                       
+                                                                
+0C H          L          Bildschirm löschen, Kursor Home         
+                                                                
+0D H          M          CR; Kursor an Anfang nächster Zeile;    
+                         Enter                                  
+                                                                
+0E H          N          Kursor direkt positionieren (s. unten)   
+                                                                
+0F H          O          Tabulator 8 Spalten                    
+                                                                
+19 H          Y          Ein-/Ausgabe normal Drucker aus        
+                                                                
+5F H     DEL/RUBOUT      Kursor nach links und Zeichen lösch.   
+                                                                
+1A H          Z          Umschaltung Zeichensatz SCCH/ACC       
+                         (nach Erweiterung 4k Zeichengenerat)   
+                                                                
+Ctrl. + N:  Direkte Kursorpositionierung.                       
+            Ctrl. + N steht Kursor Home. Mit den Ziffern-         
+            tasten dezimale Bildschirmposition angeben.         
+                                                                
+            1.Zeilenposition  ( 00 bis 31 )                     
+            2.Spaltenposition ( 00 bis 63 )                     
+                                                                
+Der Kursor kann an jede beliebige Bildschirmposition gebracht   
+werden. Dargestellte Zeichen werden dabei nicht verändert (der   
+Kursor blinkt abwechelnd zum Zeichen). Fehlerhafte Zeichen       
+können durch überschreiben mit anderen Zeichen, oder mit         
+DEL/Rubout korrigiert werden.                                   
+Um den Kursor um mehrere Bildschirmpositionen zu bewegen oder   
+Zeichen mehrfach zu schreiben, braucht die entsprechende Taste   
+nur gedrückt zu bleiben. Das Zeichen wird mit erhöhtem Tempo     
+ständig wiederholt (Repetierfunktion). Wird der Bildbereich      
+nach oben verlassen, erscheint der Kursor an der gleichen        
+Stelle am unteren Bildrand.                                     
+                                                                
+BREAK - Taste / NMI: Die entprellte NMI - Taste ist mit dem     
+NMI - Eingang der CPU zu verbinden. Im Monitor dient diese       
+Taste zum Programmabbruch mit Rücksprung in die Maschinen-      
+sprache - Monitorebene. Registeranzeige mit R (CR), Programm-     
+fortsetzung mit G (CR) möglich.                                 
+                                                                
+
+Befehlsroutinen des Monitors:                                   
+                                                                
+Befehle können eingegeben werden, sobald sich der Monitor mit    
+seinen Promptsymbol (Doppelkreuz) meldet. Dabei hat die          
+Befehlszeile folgende Form:                                     
+X aaaa bbbb cccc                                                
+X - ist das entsprechende Zeichen, mit dem das Kommando abge-    
+kürzt wird. Hinter dem Kommandozeichen können bis zu 3 der       
+max.4 stelligen Argumente folgen (hexadezimal).Hinter jeden     
+Argument muss mindestens 1 Leerzeichen stehen, führende          
+Nullen können entfallen. Werden weniger Argumente angegeben,     
+als zu dem Kommando erforderlich, wird für die Fehlenden, der     
+Wert 0 gebildet.                                                
+X: Die Angabe des Doppelpunktes hinter dem Kommandozeichen      
+bewirkt, dass die Argumente des vorhergehenden Kommandos         
+verwendet werden. Die Befehlszeile wird mit Taste 'ENTER'        
+bzw.'CR' vom Bildschirm übernommen, analysiert und ausgeführt.   
+Wird ein Befehl nicht verstanden, erfolgt Ausschrift '?'.        
+Die Übernahme der kompletten Befehlszeile vom Bildschirm in     
+den Computer hat den Vorteil, dass Korrekturen  jederzeit noch   
+möglich sind oder ein Befehl mehrfach ausgeführt wird, indem     
+der Kursor erneut in die Befehlszeile positioniert wird         
+(beliebige Position hinter Doppelkreuz).                        
+
+                                                                
+DEBUGGER:                                                       
+                                                                
+Der Debugger dient insbesondere der Testung, Fehlersuche,        
+Entwicklung von Maschinenprogrammen. Weiterhin sind Kommandos    
+zur Ein / Ausgabesteuerung (Kassette, Drucker) vorhanden.        
+Die Kommandozeichen sind mit den geforderten Argumenten zu      
+übergeben. In Klammern stehende Argumente sind nicht unbedingt   
+erforderlich.                                                   
+                                                                
+       Tabelle 1 Maschinensprache - Monitor Debugger            
+                                                                
+Befehlssatz:                                                    
+A   Arithmetik     Addition, Subtraktion, Displ., Dezimal          
+b   BASIC          Start des Basicinterpreter V.3.2 (kalt)      
+B   Breakpoint     Unterbrechung setzen, nur RAM                
+C   Compare        Vergleich von 2 Speicherbereichen            
+D   Dump           Hexdump und ASCII-Darstellung                
+E   Einzelschritt  Befehl abarbeiten und Register anzeigen      
+F   Find           Suchen nach Bytes oder Zeichenkette          
+G   Go             Sprung in Programm ab Adresse PC             
+H   I / O          Zuordnung der Ein- und Ausgabekanäle         
+I   Init           RSA löschen, SP initialisieren                
+J   Jump           Sprung in Programm ab Adresse                
+K   Kassette save  Speichert Programm oder Datei auf Kassette   
+L   Load           Lädt ein Programm oder Datei von Kassette    
+N   CRC            Cheksumme berechnen                          
+O   RAM - Test     Testet RAM ab Adresse                        
+p   Pattern        Speicher löschen von 1900-FFFF,FF einschr.   
+P   Pattern        Füllt Speicher mit Datenbyte                 
+r   BASIC          Start des Basicinterpreter V.3.2 (warm)      
+R   Register       Ausgabe der RSA - Register (Modifikation)    
+U   In             Lesen auf Portadresse                        
+T   Transfer       Kopiert Speicherbereich in anderen Speich.   
+W   Out            Schreiben auf Portadresse                    
+X   Exit           Sprung in Betriebssystem Programmpaket X     
+?   Help           Liste der verfügbaren Kommandos              
+=   Speichern      Ablegen Bildschirm nach A000 H - DFFF H      
+/   Display        Ablage zurück auf Bildschirm                 
+::  Arg.           Argument Anzeige                             
+Z   Verify         Vergleich einer Bandaufzeichnung             
+
+                                                                
+A   aaaa   bbbb     Arithmetik                                  
+                                                                
+Es werden berechnet: Sprungabstand (für relative Sprünge),      
+Summe, Differenz (aaaa zu bbbb),dezimaler Wert.                  
+                                                                
+                                                                
+b                   BASIC                                       
+                                                                
+Kaltstart des Basic - Interpreter V.3.2 (Modul 1)               
+                                                                
+                                                                
+B   aaaa            Breakpoint                                  
+                                                                
+Setzen eines Softwarehaltepunktes auf Adresse aaaa. Der Break-   
+point wird bei J - Befehl geladen (RST 38 H, 1 Byte - Befehl)   
+Mit Erreichen des Breakpoint eines Programmlaufes wird das      
+Originalbyte wieder hergestellt und der Monitor springt in      
+den Einzelschrittmodus (siehe 'E').Jeder Breakpoint wird nur    
+einmal aktiviert, erforderlichenfalls ist der gleiche Break-     
+point neu einzugeben.                                           
+                                                                
+                                                                
+C  aaaa bbbb cccc  Compare                                      
+                                                                
+Vergleicht die Speicherbereiche ab aaaa und bbbb mit der        
+Länge cccc. Ungleichheiten werden mit Adress- und Datenangabe    
+durch Taste "CR' fortlaufend angezeigt. Jede andere Taste        
+bewirkt vorzeitigen Abbruch.                                    
+                                                                
+                                                                
+D  aaaa             Dump normal                                 
+D  aaaa eeee        Dump drucken                                
+                                                                
+Der Adressbereich von Adresse aaaa wird angezeigt.              
+Angezeigt wird Adresse, ASCII 'A', oder Hex 'H' Eingabe,         
+8 Datenbytes, ASCII - Interpretation. Das Bild lässt sich        
+mit 'CR' rollen. Mit den Kursortasten kann sowohl vorwärts       
+als auch rückwärts gerollt werden. Datenbytes können über-       
+schrieben werden, dazu wird der Kursor in die entsprechende      
+Zeile positioniert und die erforderlichen Datenbyte über-       
+schrieben. Mit 'CTRL.+ A' wird zwischen ASCII- und Hex - Ein-    
+gabe umgeschalten. Leerstellen zwischen Datenbytes werden        
+automatisch übersprungen. Rückkehr in Monitor CTRL.+ C.          
+                                                                
+                                                                
+E  aaaa ; E:        Einzelschritt                               
+                                                                
+Befehlabarbeitung eines Anwenderprogramms ab Adresse aaaa       
+oder ab PC (E:) im Schrittmodus.                                
+Die Prozessor - Register werden automatisch mit Werten der      
+RSA geladen, welche bei Bedarf vorher mit Befehl R gesetzt       
+und angezeigt werden können. Der Stackpointer ist vorher         
+unbedingt mit 'R' oder 'I' auf definierten Wert zu bringen!     
+Angezeigt werden bei ausgeführten Befehl: Adresse, Befehl,      
+4 Hauptregister, Flag. In der nächsten Bildzeile wird die        
+Adresse und Bytes des nachfolgenden Befehls bereits angezeigt   
+Befehlausführung jeweils mit Taste 'CR'.                        
+Gesamt werden 32 Befehlszeilen gleichzeitig auf den Bild-       
+schirm dargestellt, womit sich Programmfehler gut zurück-        
+verfolgen lassen.                                               
+                                                                
+Weitere Funktionen:                                             
+Taste 'R' Sprung in den Befehl 'R '.Es kann der gesamte         
+Registersatz dargestellt und neu gesetzt werden (siehe 'R').    
+                                                                
+Taste 'B' Anzeige des alten Breakpoint, ein neuer Breakpoint     
+kann eingegeben werden. Somit können z.B. UP - Aufrufe über-     
+sprungen werden.                                                
+                                                                
+Taste 'G' Fortsetzung des Programmlaufs in Echtzeit bis zum     
+Erreichen eines neuen Breakpoint.                               
+                                                                
+Taste 'Q' Einzelschrittmodus beenden, Rückkehr in Monitor.       
+Die CPU - Register werden in RSA zwischengespeichert. Der        
+Einzelschritt kann jederzeit mit 'E:' an gleicher Stelle        
+fortgesetzt werden.                                             
+Folgende Befehle dürfen nicht im zu testenden Programm          
+stehen: IM0; IM1; DI; EI; LD I,A                                
+Breakpoint kann nur im RAM gesetzt werden, Schrittmodus ist      
+im RAM/ROM - Bereich möglich.                                   
+Der Kanal 0 der CTC darf ebenfalls vom Programm nicht ver-      
+ändert werden. 
+
+F  aaaa  eeee  xx xx  xx    Finding String                      
+                                                                
+Der Speicher wird von Adresse aaaa bis eeee nach der Byte-      
+folge xx xx xx (Länge beliebig) durchsucht. Suche nach ASCII-    
+Zeichen ist ebenfalls möglich, diesen ist ein Hochkomma vorzu-   
+setzen. Wird für xx ein J = Joker eingesetzt, wird jedes Byte     
+genommen. Es ist gestattet ASCII, HEX und Joker gemeinsam zu      
+verwenden.                                                      
+                                                                
+                                                                
+G             Go On                                             
+                                                                
+Start eines Programms ab Adresse PC, Siehe Befehl 'J'.           
+                                                                
+                                                                
+H             I/O - Byte                                        
+                                                                
+Angezeigt wird das Ein/Ausgabebyte, welches die Zuordnung        
+der Ein- und Ausgabekanäle darstellt. Normal (nach Einschalten   
+auch Taste BREAK/NMI ist der Wert 11, somit Eingabe Tastatur     
+und Ausgabe Bildschirm.                                         
+                                                                
+Bit - Zuordnung:
+bit 0    Tastatur              bit 4    Bildschirm              
+bit 1    V 24 (RS 232c)        bit 5    V 24 (RS 232c)          
+bit 2    Reserve               bit 6    Reserve                 
+bit 3    User                  bit 7    User                    
+                                                                
+Bit 0 - 3  sind für Eingabe, bit 4 - 7  für Ausgabe zuständig.   
+Zur Eingabe ist max. 1 Kanal zugelassen, Ausgabe beliebige       
+Anzahl.                                                         
+Nach dem angezeigten kann ein neuer Wert eingegeben werden,     
+Übernahme mit Taste 'CR'. Nur Taste  'CR' behält alten Wert.     
+                                                                
+                                                                
+I             Initialize                                        
+                                                                
+Löschen der RSA (RSA = Zwischenspeicher der CPU - Register      
+für Anwenderprogramme. Die RSA wird genutzt bei Befehlen: B;     
+E; G; J; R).                                                    
+Der Anwenderstack wird initialisiert, Adresse wird angezeigt     
+(SP xxxx).                                                      
+                                                                
+                                                                
+J aaaa       Jump                                               
+                                                                
+Sprung in Anwenderprogramm ab Adresse aaaa. Die CPU - Register   
+werden mit den Werten der RSA geladen. Ein zuvor eingegebener    
+Breakpoint wird aktiviert. Wird im Programmlauf ein Breakpoint   
+erreicht, erfolgt Registeranzeige und der weitere Ablauf im      
+Einzelschritt (siehe 'E').                                      
+                                                                
+                                                                
+K aaaa bbbb ("name") Kassette bespielen Programm (Turbo)        
+K aaaa bbbb * ("Name") Kassette bespielen Datei  (Turbo)        
+                                                                
+Abspeichern eines Files von Adresse aaaa bis bbbb auf           
+Kassette. Ein Name kann bis zu 16 Zeichen lang sein. Das          
+Bandgerät ist mit akustischen Signal zu starten, bei weiteren    
+ak. Signal wieder abzuschalten (Stellung Aufnahme).Bei Einsatz   
+der elektronischen Start/Stop - Schaltung erfolgt der Start     
+automatisch (siehe Schaltbild).                                 
+Am Ende wird die CRC - Prüfsumme berechnet und ausgeschrieben   
+Turbo - Tape lädt 1 kByte in ca.3 sec. bbbb bis max. FFCF         
+zulässig. Autostart und Interrupt siehe 'L'.                     
+                                                                
+                                                                
+L  ("Name")      Laden Programm    (Turbo)                      
+L *("Name")      Laden Datei       (Turbo)                      
+                                                                
+Der Computer lädt ein Programm oder Datei in den Speicher.      
+Ein zuverlässiges Suchsystem ist vorhanden.                     
+Ohne Namenangabe wird das nächste Programm geladen ('L'CR)).    
+Mit Namensangabe wird das Programm gleichen Namens geladen,     
+andere Programme werden aufgelistet (Found name). Der Name       
+kann beliebig gekürzt werden, wenn Verwechslungen ausge-         
+geschlossen sind,(z.B.'L'"BA (CR) für Laden BASIC - INTERPR.)   
+Von jeden ladenden bzw. gefundenen Programm werden angezeigt:    
+Name, Anfangsadresse, Endadresse, Filetyp (siehe Anhang).          
+Nach dem Laden werden zusätzlich Ladefehler angezeigt (ERROR    
+Blockendadressen) und Laden nach defekten RAM - Speicher        
+(ERROR RAM Blockadressen). Werden mehr als 9 Blöcke fehlerhaft   
+gelesen, erfolgt vorzeitiger Abbruch. Laden kann mit Taste        
+BREAK/NMI abgebrochenwerden. Die Adressen werden nach arg.1+2    
+übergeben, mit 'N:' kann die CRC - Prüfsumme angezeigt werden.   
+                                                                
+Autostart: Nach dem Laden überprüft der Computer das Programm   
+auf vorhandene Autostart - Sequenz. Ist diese vorhanden, er-      
+folgt der Autostart auf entsprechender Adresse. Die Autostart-   
+sequenz kann vor jedes Programm gesetzt werden (5 Byte) :       
+53 43 48 xx xx ; xx xx = Startadresse.                          
+                                                                
+Interrupt: der Interrupt wird während Save ('K') und            
+Load ('L') gesperrt. Somit brauchen Interruptprogramme           
+(z.B. Uhr) nicht abgeschaltet werden.                           
+Akustische Signale und Start / Stop siehe 'K'.                  
+                                                                
+                                                                
+N  aaaa  bbbb        CRC - Prüfsumme                            
+                                                                
+Prüfsummenberechnung über Speicher von Adresse aaaa bis bbbb    
+entsprechend dem CRC (SDLC) - Standard.                         
+                                                                
+                                                                
+O  aaaa              RAM - Test                                 
+                                                                
+Ermitteln der höchsten verfügbaren RAM - Speicher - Adresse.    
+aaaa entspricht dem RAM - Anfang (min.1000). Der Test ver-       
+ändert den RAM - Inhalt nicht.                                  
+
+
+p                    Pattern                                    
+                                                                
+RAM wird gelöscht und mit FF beschrieben.                       
+                                                                
+                                                                
+P  aaaa  bbbb  cc    Pattern                                    
+                                                                
+Speicherbereich von Adresse aaaa bis bbbb mit Datenbyte cc      
+füllen.                                                         
+                                                                
+                                                                
+r                    BASIC   (Warmstart)                        
+                                                                
+Warmstart des BASIC - Interpreter. Es muss breits ein Kalt-      
+start ('b') erfolgt sein und man muss über 'BYE' in die         
+Monitorebene zurückgesprungen sein.                             
+                                                                
+                                                                
+R  (aa)              Register                                   
+                                                                
+Anzeige und ändern der CPU - Register (RSA).'R'CR erfolgt       
+Anzeige des gesamten Registersatzes, des Breakpoint, Break-     
+pointsequenz sowie gesetzte Flags anhand ihres Symbols.         
+Zum Ändern einzelner Register ist für aa der Name des           
+jeweiligen Registerpaares anzugeben: HL, DE, BC, AF, HL,        
+DE, BC, AF, SP, IX, IY, PC. Der alte Inhalt wird angezeigt,     
+gefolgt vom Promtsymbol. Ein neuer Wert ist anzugeben, Über-      
+nahme mit 'CR'.                                                 
+                                                                
+                                                                
+T  aaaa  bbbb  cccc  TRANSFER                                   
+                                                                
+Speicherbereich verschieben von Adresse aaaa nach bbbb.         
+cccc ist die Länge. Überschneidung ist zulässig.                 
+                                                                
+                                                                
+U  xx                Port lesen                                 
+                                                                
+Lesen auf, Portadresse xx. Ausgabe des gelesenen Bytes auf        
+Bildschirm. Taste: Neu einlesen und Ausgabe. Mit 'Q' zurück       
+in Monitor.                                                     
+                                                                
+                                                                
+W xx aa              Port ausgeben                              
+                                                                
+Auf Portadresse xx wird Byte aa ausgegeben (siehe Anhang).      
+                                                                
+                                                                
+X                    Exit                                       
+                                                                
+Sprung in weiteres Betriebssystem X.Es wird Konfiguration       
+Modul 1 eingestellt und nach Adresse E000 gesprungen            
+(näheres siehe Bauanleitung Modul 1).                           
+                                                                
+                                                                
+Z  ("Name")          Verify    (Turbo)                          
+                                                                
+Vergleich einer Bandaufzeichnung mit Speicherbereich, um         
+Bandfehler festzustellen. Bei Verify Datei ist zusätzlich        
+Stern (*) vor Name.                                             
+                                                                
+                                                                
+?                    Help                                       
+                                                                
+Der Speicherbereich wird nach Startkommandos durchsucht und     
+diese aufgelistet. Neben den Startbefehlen des Debuggers         
+werden Startbefehle geladener Anwenderprogramme angezeigt.      
+                                                                
+Startroutinen des Monitors:                                     
+Diese werden anhand eines Kodemusters in Adressbereich          
+400 - FFFF gesucht. Jede Routine hat die Form: 00 09 xx ...      
+Programm ... C9.                                                
+xx ist der ASCII - Code des Start - Kennbuchstaben. Eigene       
+Programme brauchen nur in diesen Rahmen gepackt zu werden       
+und können über Kennbuchstaben (Zeichen/Ziffer) gestartet       
+werden.                                                         
+                                                                
+                                                                
+: :                  Argumente                                  
+                                                                
+Mit Doppelpunkt, Doppelpunkt werden die zuletzt übernommenen     
+Argumente angezeigt.                                            
+                                                                
+                                                                
+=                    Bildschirminhalt ablegen                   
+                                                                
+Nach Eingabe des Gleichheitszeichen (=) blinkt der Kursor       
+rechts oben, jetzt kann eine Ziffer von 0 bis 7 eingegeben       
+werden. Mit der Ziffer 0 - 7 wird der Bildschirminhalt auf       
+Adresse A000 - DFFF mit Seitenummer abgelegt.                   
+Mit Schrägstrich (/) und Seitenangabe (z.B. /0 - /7) wird der     
+abgelegte Bilschirminhalt wieder dargestellt. Seitenweises       
+Umblättern mit den Kursortasten bzw. CTRL. + K/J. Turbo - Tape                                                    
+                                                                
+Es werden 4 Filetypen unterschieden:                            
+       P    Lauffähiges Maschinenprogramm                       
+       B    Basicprogramm                                       
+       D    Maschinendatei                                      
+       F    Datenfeld (BASIC)                                   
+Die Filetypen B und F können nur mit BASIC - Interpreter        
+V.3.2 geladen werden. Im Monitor erfolgt lediglich Anzeige       
+des Namens, Filetyp, Anfangs- und Endadresse.                     
+                                                                
+
+Ein / Ausgabe                                                   
+                                                                
+Es stehen jeweils 4 Möglichkeiten zur Verfügung:                
+Eingabe: Tastatur, V 24 (RS 232c), Reserve, User.               
+Ausgabe: Bildschirm, V 24 (RS 232c), Reserve, User.             
+Die Ein/Ausgabe - Kanäle werden über das I/O - Byte             
+adressiert (siehe Befehl H).                                    
+Nach Einschalten des Computers wird das Ein/Ausgabebyte         
+(Adresse 1821 H) auf 11 gesetzt, somit Tastatureingabe und       
+Bildschirmausgabe.                                              
+Setzen der Ein/Ausgabe:                                         
+- Debuggerbefehl 'H' für beliebige Zuordnungen                  
+- Taste Control + Taste 'X' schaltet zusätzlich Ausgabe über    
+  V 24 ein.                                                     
+- Taste Control + Taste 'Y' schaltet Ein/Ausgabe auf Standart   
+  (11)                                                          
+- Taste BREAK/NMI setzt Ein/Ausgabe auf Standart (11)           
+Die Ausgabe verarbeitet Datenbytes 00 - 7F H, womit der ASCII-   
+Code (0 - 7F) verarbeitet wird, bit 7 wird dabei auf 0 gesetzt   
+Die Ausgabe lässt sich auf 00 - FF H umstellen, indem bit 7      
+des V 24 - Kontrollregister gesetzt wird.                       
+Adressen:   Eingabekanal       08     (dez. 8)                  
+            Ausgabekanal       10     (dez.16)                  
+            I/O - Byte       1821                               
+   V 24 Kontrollregister     1820                               
+          User - Eingabe     18F0     User - Ausgabe  18F3      
+       V 24 - Eingabe UP     01D6  V 24 - Ausgabe UP  0FE8      
+                                                                
+                                                                
+V 24 - Schnittstelle (RS 232c)                                  
+                                                                
+Die standardisierte Schnittstelle ermöglicht den Anschluss      
+Von Drucker, Modem u.a. Peripheriegeräten und die Kopplung mit   
+weiteren Computern. Die Schnittstelle arbeitet mit TTL - Pegel   
+zum Anschluss von Peripherie wird in der Regel eine Pegel-      
+anpassung (-12V, +12V) benötigt (siehe Schaltbild).             
+V 24 ist eine serielle Schnittstelle. Zur Kopplung können        
+wahlweise 3 Leitungen (3 Draht - Handshake) oder 5 Leitungen    
+(X Draht - Handshake) eingesetzt werden. Letzteres ist zur       
+Kopplung mit langsamer Peripherie (Drucker) notwendig. Zur       
+Kopplung von 2 Computern genügt der schnelle 3 - Draht Hand-    
+shake.                                                          
+Über das Kontrollregister werden die Standardwerte der          
+Schnittstelle eingestellt (siehe Tabelle). Nach Einschalten     
+des Computers sind folgende Werte voreingestellt:               
+                                                                
+Adresse  02   9600 Baud   1 Stop-Bit  ohne Parität              
+X-Draht-Handshake  8 Datenbit (Ausgabebit 7 auf 0 gesetzt).     
+                                                                
+Somit kann übliche Pripherie (Drucker) unmittelbar betrieben    
+werden z.B. Schreibmaschine S 6006.                             
+                                                                
+V 24 - Kontrollregister  (Adr.1820 H) :                         
+Bautrate         bit2   bit 1   bit 0   dez.                    
+  300             1      1       1       7                      
+  600             1      1       0       6                      
+ 1200             1      0       1       5                      
+ 2400             1      0       0       4                      
+ 4800             0      1       1       3                      
+ 9600             0      1       0       2                      
+19200             0      0       1       1                      
+                                                                
+Stop - Bits (Ausgabe)  :       bit 3      dez.                  
+                1               0          0                    
+                2               1          8                    
+                                                                
+Parität (Ausgabe)              bit 5      bit 4     dez.        
+8 Datenbit, ohne P.             0          0         0          
+7 Datenbit, + P.ungerade        0          1        16          
+7 Datenbit, + P.gerade          1          0        32          
+                                                                
+Handshake (Ausgabe)            bit 6      dez.                  
+          3 - Draht             1         64                    
+          X - Draht             0          0                    
+                                                                
+Ausgabe                        bit 7      dez.                  
+8 Datenbit                      1         128                   
+7 Datenbit bit 0-6 + bit 7-0    0           0                   
+Der Eingabekanal arbeitet ohne Paritätskennung, eine Ein-        
+stellung der Stop - Bits und Handshake ist nicht notwendig.     
+Hardware: die serielle Schnittstelle verwendet 4 Kanäle         
+(A0 - A3) der PIO 2.Die PIO 2 ist zu erweitern, Adressierung     
+über IOSEL 2.                                                   
+Die POI hat gegenüber einer SIO den Vorteil des geringeren      
+Aufwandes. Die Baudraten werden Softwaremässig getaktet und      
+sehr genau eingehalten (+ - 0%).                                
+                                                                
+PIO 2    A0 Eingang Daten          RxD       Buchse: 1          
+         A1 Ausgang Daten          TxD               3          
+         A2 Eingang empfangsbereit CTS               4          
+         A3 Ausgang sendebereit    DSR               5          
+                                                                
+Die Leitungen werden auf eine 5 - pol. Diodenbuchse gelegt.      
+2 Computer AC 1 können über ein Überspielkabel gekoppelt        
+werden. Die Kopplung mit weiteren Computern (z.B. Comodore 64,   
++4, KC 85) erfolgt entsprechend der Angaben in den Hand-        
+büchern. Es können problemlos Daten ausgetauscht werden.         
+                                                                
+                                                                
+Serielle IEC - Schnittstelle                                    
+                                                                
+Es handelt sich um die standardisierte Comodore - Schnitt-      
+stelle. Ermöglicht wird somit die Verbindung der Comodore-       
+Peripherie, inbesondere Diskettenlaufwerk Typ 1541, 1570,        
+1571 und Comodore - Drucker. Im Monitor sind keine Routinen      
+zur Unterstützung dieser Schnittstelle enthalten.               
+                                                                
+Hardware                             Buchse 6 Pin               
+                                                                
+    PIO 2    B 7     DATA IN                 5                  
+             B 6     CLK IN                  4                  
+             B 5     DATA OUT                5                  
+             B 4     CLK OUT                 4                  
+             B 3     ATN                     3                  
+                                                                
+                                                                
+EPROM - Programmer  2708 - 27512                                
+                                                                
+Der EPROMER arbeitet mit PIO 2 Port A + B. Zu beachten ist,     
+das PIO 2 mehrfach genutzt wird (V 24, IEC).Vor Anschluss       
+des Programmers V.1.1/2 ist die Peripherie zu trennen.          
+Port A der PIO 2 ist auf Modus 2 zu initialisieren.             
+Epromer v.1.1/2 entsprechend erweitern.(Epromer V.1.3 ist       
+bereits erweitert!) :                                           
+       LD A,BF H      3EBF                                      
+       OUT PIO 2/A    D30A                                      
+                                                                
+                                                                
+Joystick                                                        
+                                                                
+Es können 1 oder 2 Stück angeschlossen werden,(siehe Schaltb)   
+Die Abfrage der Joysticks kann im Anwenderprogrammen über       
+UP 'Joy' erfolgen,siehe UP - Verzeichnis.                       
+                                                                
+                                                                
+Weitere Betriebssysteme                                         
+                                                                
+Die weiteren Betriebssysteme werden fest auf EPROM in-          
+staliert, entsprechend Bauanleitung Modul 1.Welchen Betriebs-    
+system die höchste Priorität zusteht, kann der Anwender frei     
+festlegen. Um in das jeweilige Betriebssystem zu gelangen, gibt   
+es verschiedene Möglichkeiten.                                  
+- Starten des BASIC - Interpreter V.3.2 :'b' (CR)               
+  (Rückkehr in Monitor mit BYE).                                
+                                                                
+- Starten des Programmpaket X                                   
+  1. 'X' (CR)                                                   
+  2. Taste 'X' drücken und RESET betätigen.                     
+  3. Taste 'X' während des Einschaltens des Computers drücken   
+
+                                                                
+Betriebssystem  Monitor SCCH                                    
+                                                                
+Ablauf nach Einschalten des Computers:                          
+- Interrupt gesperrt                                            
+- SP initialisiert                                              
+- Initialisierung der Peripherie (PIO/CTC)                      
+- Sprungtabelle für RST, NMI in den RAM übertragen               
+- Ein/Ausgabe - Byte, V24 - Kontrollregister in den RAM über-    
+  tragen                                                        
+- Interruptregister wird gesetzt                                
+- Abfrage Tastatur auf gedrückter Taste 'X'; Taste 'X'           
+  gedrückt: Konfigurationsregister für Modul 1 einstellen,      
+  Sprung nach E000 H.                                           
+                                                                
+sonst:                                                          
+- Bildschirm löschen und Überschrift                            
+- Tastaturschleife/Warten auf Eingabe Debugger/Monitor          
+                                                                
+
+Betriebssystem, Routinen, Unterprogramme                        
+                                                                
+Adresse                  Funktion       (verwendete Register)   
+ 0008   Eingabekanal, normal Tastatur               (A)         
+ 0010   Ausgabekanal, normal Bildschirm             (A)         
+ 0018   Zeichenkettenausgabe bis einschliesslich des            
+        Byte, wo bit 7 gesetzt ist.                              
+ 0033   Ausgabe über Bildschirm                                 
+ 0038   Breakpoint                                              
+ 0066   NMI - Befehl, Programmunterbrechung                      
+ 00A5   UP 'Eingabekanal'                           (A)         
+ 011D   UP 'MS 30'   Zeitschleife 30 ms                         
+ 0118   UP 'Inline', liest Zeile von Bildschirm ein (Adresse     
+        in 181A)                                                
+ 0146   UP - Routine zu InHex                                   
+ 0172   UP 'InHex' wandelt eine 4-stellige Zahl im ASCII-Code    
+        in Hexzahl um.DE - Zeiger auf Zahl (Bildschirm),        
+        Ergebnis in HL (DE,HL)                                  
+ 0183   UP 'Outhex', gibt A als 2-stellige Hexzahl auf           
+        Schirm aus                                   (A)        
+ 019A   UP 'Out HL', gibt HL - Register als Hexzahl              
+        auf Schirm aus                               (HL)       
+ 01A5   UP, CPU - Register ausräumen nach RSA                   
+ 01BC   UP, CPU - Register einräumen von RSA                    
+ 01D6   V 24 - Eingabe                               (A)        
+ 01DE   Warteschleife Kommandozeicheneingabe                    
+ 0220   Tabelle RST, NMI, Hilfsregister, V 24, I/O              
+ 0240   Einsprung bei Programmfehlern                           
+ 026B   UP 'ERROR', schreibt Zeichenkette 'ERROR'               
+ 0272   UP 'akustisches Signal'                                 
+ 0287   UP 'Ton',Reg, B = Tonlänge, C = Tonhöhe      (BC)       
+ 0297   UP 'Taste', testet Tastaturstatus, kehrt bei              
+        gedrückter Taste nach 18 ms mit dem Kode zum            
+        Akku zurück, keine Taste - Rückkehr mit gesetzten        
+        Z - Flag und A = 0 Code steht auch in 1822 H (A)        
+ 02F8   Interruptvektor CTC                                     
+ 04CA   Register mit Argumenten laden, aaaa = HL, bbbb = DE,      
+        cccc = BC                                               
+                                                                
+                                                                
+Sprungverteiler                                                 
+                                                                
+ 07E8       V 24         Ausgabe                                
+ 07EB       MS 30        (011D)                                 
+ 07EE       OUTHEX       (0183)                                 
+ 07F1       OUT HL       (019A)                                 
+ 07F4       INLINE       (0128)                                 
+ 07F7       INHEX        (0172)                                 
+ 07FA       TASTE        (0297)                                 
+ 07FD       Betco        (01DE)                                 
+ 0AD8       Tabelle Perpherie                                   
+ 0B90       UP 'Zeitschleife 18 ms' zur Tastaturentprellung      
+ 0EB4       UP 'Joy'. Abfrage Joystick 1,keine Taste Z - Flag    
+            gesetzt und A = 0, oben bit 0, unten bit 1, links     
+            bit 2, rechts bit 3, Feuerknopf bit 4 vom Akku      
+            gesetzt.                                  (A)       
+                                                                
+                                                                
+Speicherbelegung (Mamory Map)                                   
+                                                                
+Adresse                                                         
+ 0000                Betriebssystem                             
+ 1000                Bildschirmspeicher                         
+ 1800                Zwischenspeicher Kursor                    
+ 1802                Sprungtabelle RST 8  H                     
+ 1805                Sprungtabelle RST 10 H                     
+ 1808                Sprungtabelle RST 18 H                     
+ 180B                Sprungtabelle RST 20 H                     
+ 18DE                Sprungtabelle RST 28 H                     
+ 1811                Sprungtabelle RST 30 H                     
+ 1814                Sprungtabelle RST 38 H                     
+ 1817                Sprungtabelle NMI                          
+ 181A                Zwischenspeicher 'Inline'                  
+ 181C                Warmstartcode                              
+ 1820                Kommandocode V 24                          
+ 1821                Ein/Ausgabebyte                            
+ 1822                Tastencode der zuletzt gedrückten Taste    
+ 1824                Hilfsregister Repetierfuktion Tastatur     
+ 1825                Hilfsregister Kursorpositionierung         
+                     (CTRL. + N)                                 
+ 1856                Stack                                      
+ 1857                Hilfsregister UP 'INLINE'                  
+ 185B                Zwischenspeicher Argument 1                
+ 185D                Zwischenspeicher Argument 2                
+ 185F                Zwischenspeicher Argument 3                
+ 1861                RSA : AF', BC',DE',HL'                     
+ 1869                RSA : AF, BC, DE, HL                       
+ 1871                RSA : IX, IY, PC, SP                       
+ 1879                RSA : BP                                   
+ 187B                RSA : Breakpointsequenz                    
+ 187E                Speicher Save/Load Turbo - Tape            
+ 18D6                freier RAM                                 
+ 18F0                User Eingaberoutine                        
+ 18F3                User Ausgaberoutine                        
+ 1900                Anwenderspeicher bis FFFF                  
+ 2000                Modul 1 : Basicinterpreter                 
+ 6000                Arbeitsspeicher Basicinterpreter           
+ 60F7                Anfang Basic RAM                           
+ C000                Modul 1 : ROM - Bank 1 und 2               
+ E000                Betriebssystem Programmpaket X             
+ FFFF                RAM - Ende                                 
+                                                                
+                                                                
+Peripherie                                                      
+                                                                
+  00                 CTC - Kanal  0 - 3                         
+  04                 PIO 1                                      
+  08                 PIO 2                                      
+  14                 Modul 1; Konfigurationsregister            
+  15                 Modul 3; RAM - Disk / Bank                 
+                                                                
+                                                                
+Belegung PIO 1/B  (D17)                                         
+                                                                
+Kanal                   Belegung                                
+ B0                     Ton - Ausgang                           
+ B1                     Joystick 1 gem. A                        
+ B2                     Grafiktaste                             
+ B3                     Bildschirmmode                          
+ B4                     frei                                    
+ B5                     Start / Stop - Schaltung                
+ B6                     TB - Interface - Ausgang                
+ B7                     TB - Interface - Eingang                
+                                                                
+Hinweis : Einige PIO - Kanäle werden vom Epromer doppelt        
+          mitbenutzt. Epromer V 1.1/2 sollte daher steckbar      
+          sein und nur bei Bedarf angeschlossen werden.         
+                                                                
+                                                                
+Einbau der Grafiktaste (nur Originaltastatur)                   
+                                                                
+Der einpolige rastende Schalter kommt an PIO 1/B2 und Masse     
+Von PIO 1/B2 ein R = 330 Ohm und LED VQA 13 nach 5P an-         
+schliessen. Die LED leuchtet bei eingeschalteter Grafiktas-      
+tatur. Änderung im Monitor notwendig!                            
+Adresse 02A9 Datenbyte FF in 21 ändern.                         
+EPROM kann überprogrammiert werden.                             
+                                                                
+                                                                
+Super - Tape                                                    
+                                                                
+Super - Tape ermöglicht, Programme im Super - Tape - Format      
+zu saven. Geladen werden Supertape - Aufzeichnungen normal       
+mit der Funktion 'L' des Monitors bzw.'CLOAD'des Basicinter-    
+preters. Zum Laden wird Supertape nicht mehr benötigt!           
+Das Supertape - Format verfügt über folgende Eigenschaften:     
+Titelbild: Kurz nach Anzeige des Programmnamens erscheint       
+ein Titelbild, indem sich z.B. Programm und Autor vorstellen     
+können. Nach dem Titelbild wird das weitere Programm geladen.    
+Streifen: In den unteren 4 Bildzeilen erscheint ein bewegtes    
+Muster, welches eine optische Kontrolle des Ladevorgangs         
+ermöglicht.                                                     
+Autostart: Nach dem Laden erfolgt Autostart des Programms.      
+                                                                
+                                                                
+Start von Super - Tape                                          
+                                                                
+Laden Sie das Programm, welches Sie in Super - Tape - Format     
+saven wollen. Falls Sie mit Titelbild arbeiten, ist dieses zu     
+gestalten. Möglich sind: Von Hand, über ein kurzes Basic - Pro-   
+gramm oder über grafisches Mal/Zeichenprogramm.                 
+Das Titelbild ist vom Bildschirm in den Bildspeicher von        
+Super - Tape zu transferieren, z.B.:'T1000 E800 800 '(CR)        
+Starten Sie Super - Tape ('x'(CR)).                             
+                                                                
+Jetzt werden folgende Eingaben abgefragt:                       
+Programmname  (bis 16 Zeichen möglich)                          
+Anfangsadresse :Anfangadresse des Programms                     
+Endadresse     :Endadresse des Programms                        
+Adr. Hilflader :Adresse für Hilfslader möglichst 200 H vor      
+                Anfangsadresse. Wenn dies nicht geht (ROM-Ber.   
+                /belegter RAM), in beliebigen freien Bereich     
+                von 2,2 kByte.                                  
+Startadresse   :Startadresse des Programms für Autostart        
+Adr. BREAK/NMI :Damit wird die Break - Taste automatisch        
+                neu belegt                                      
+Adr. RESET     :Wird mit 'CR' übergangen.                       
+AC 1 /LLC 2    :Es lassen sich Supertape - Aufnahmen für AC 1   
+                und LLC 2 herstellen, unabhängig von Ihren       
+                Computertyp (die Programme müssen natürlich     
+                auf den jeweiligen Computer laufen!)            
+Titelbild J/N  :Supertape ist auch ohne Titelbild               
+Start Save     :Kassette starten (Aufn.) und CR drücken         
+Wiederholung J/N : Mit Wiederholung können unzählige            
+                   Kassetten bespielt werden                    
+                                                                
+Hinweis : Verwenden Sie Supertape nicht bei der Weitergabe,    
+          eine Copy wäre nicht möglich.                        
+                                                                
+                                                                
+Copyright: SCCH - Monitor und Super - Tape sind                 
+           (c) by E. Ludwig                                      
+           Alle Rechte vorbehalten. Programme und Anleitungen    
+           können zur persönlichen Verwendung kostenlos         
+           weitergegeben und vervielfältigt werden, unter        
+           Urheberangaben.
