@@ -3,7 +3,8 @@ Assemblercode für den AC1-Monitor 10/88
 
 Die Datei MONI1088.MAC enthält den Assemblercode für den AC1-Monitor 10/88.
 Von diesem Monitor gibt es Anpassungen an den AC1-2010 mit COLOR-BWS-CPLD aus dem Jahr 2011.
-Am Anfang der Datei wird definiert, welcher Monitor gebildet werden soll.
+Am Anfang des Assemblercodes wird definiert, welcher Monitor gebildet werden soll.
+Die Dokumentation ist in der Datei MONI1088.DOK
 
 Zum Assemblieren kann der Macroassembler M80.COM verwendet werden.
 
