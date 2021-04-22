@@ -1,35 +1,37 @@
 ; ************************************************************
 ; *                                                          *
-; *  MONITOR 10/88 fuer den AC 1     Version vom 12.04.2021  *
+; *  MONITOR 10/88 fuer den AC 1     Version vom 22.04.2021  *
 ; *                                                          *
 ; ************************************************************
 ;
 ; Aenderungen:
 ;
-; Korrektur an der Originalversion 1988: 
-; - Beim Einbau einer Grafiktaste muss Adresse 02A9H 
-;   von FFH auf 21H geaendert werden
+; Korrekturen an der Originalversion 1988: 
+; - Fuer die Nutzung der Grafiktaste wurde Adresse 02A9H 
+;   von FFH auf 21H geaendert
+; - korrekte V.24-Baudraten für den Betrieb mit 2 MHz
+;   (das bisherige Timing war fuer 2,4768 MHz ausgelegt)
+;   Korrekturen auf Adr. 00F9H bis 00FBH und 0E39H bis 0E3BH
 ;
-; Korrektur an der BWS-CPLD-Version 2011:
+; zusätzliche Aenderungen an der BWS-CPLD-Version 2011:
 ; - Fehler beim Monitorkommando "7" fuer die PIO2-Karte:
 ;   Adresse 0FD4H von 10H auf 20H korrigiert
 ;
-; Aenderungen an der BWS-CPLD-Version 2021:
+; Aenderungen an der BWS-CPLD-Version 2011 --> 2021:
 ; - Grafiktaste 02A9H ist FFH (= abgeschaltet)
 ; - Farbbyte 0F9FH ist 4FH (= weiss auf blauem Hintergrund)
-; - die Monitorkommandos "X" (Programmpaket-X), "b" und "r"
-;   (Kaltstart und Warmstart von ROM-Grafik-Basic V3.2)
-;   wurden entfernt
-; - neues Monitorkommando "X": Start der ROM-Bank
+; - die Monitorkommandos "X", "b" und "r" wurden entfernt,
+;   weil ich kein Modul-1 besitze
+; - neues Monitorkommando "X": Start der AC1-2010-ROM-Bank
 ;
 ;
-; *******************************************************************
-; *  Wichtig:                                                       *
-; *  Hier muss die geforderte Monitorversion auskommentiert werden  *
-; *******************************************************************
-MONI88  EQU  1            ;Monitor 10/88 - Originalversion 1988
-;MONI11  EQU  1            ;Monitor 10/88 - BWS-CPLD-Version 2011
-;MONI21  EQU  1            ;Monitor 10/88 - BWS-CPLD-Version 2021
+; ***************************************************
+; *  Wichtig: Hier muss die geforderte              *
+; *           Monitorversion auskommentiert werden  *
+; ***************************************************
+MONI88  EQU  1       ;Monitor 10/88 - Originalversion 1988
+;MONI11  EQU  1       ;Monitor 10/88 - BWS-CPLD-Version 2011
+;MONI21  EQU  1       ;Monitor 10/88 - BWS-CPLD-Version 2021
 ;
 ;
         PAGE 64
@@ -65,6 +67,7 @@ P08     EQU  08H          ;PIO 2
 P0E     EQU  0EH          ;ROM-Bank: EPROM-Einblendung
 P0F     EQU  0FH          ;PIO2-Karte: EPROM-Einblendung
 P14     EQU  14H          ;Modul-1: Konfigurationsregister
+P16     EQU  16H          ;RAM 0000H bis 0FFFH einblenden
 ;
         .PHASE 0000H
 ;
@@ -264,7 +267,7 @@ RST08:  PUSH HL
         LD   A,(1821H)    ;LD A,I/O-Byte 
         RRCA              ;Rotiere A-Register rechts
         JR   NC,NOTAST    ;anderes Eingabegeraet (keine Tastatur)
-        LD   HL,1857H     ;hier gehts weiter YYYYYYYY
+        LD   HL,1857H
         LD   B,(HL) 
         LD   (HL),18H 
 L00B3:  CALL UPTAST 
@@ -310,19 +313,8 @@ L00EF:  LD   A,R
         LD   B,0AH 
 L00F6:  LD   L,H 
         RR   C 
-        IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
-L00F9:  PUSH HL
-        POP  HL
-        LD   A,A
-        ENDIF
-        IFDEF MONI11      ;Monitor 10/88 - BWS-CPLD-Version 2011
-L00F9:  BIT  3,(HL)
-        NOP
-        ENDIF
-        IFDEF MONI21      ;Monitor 10/88 - BWS-CPLD-Version 2021
-L00F9:  BIT  3,(HL)
-        NOP
-        ENDIF
+L00F9:  LD   L,(HL)
+        INC  IX
         DEC  L 
         IN   A,(P08) 
         JR   NZ,L00F9 
@@ -827,6 +819,9 @@ ZGUMS:  IN   A,(P05)
 ;
         DEFB 5BH,5BH      ;Interruptvektor CTC --> 5B5BH ???
 ;
+;
+; RAM von 0000H bis 0FFFH einschalten
+;
 ALTMO:  LD   (0FFFEH),HL  ;wird von Fkt. "Y" angesprungen
         JP   0FFFEH       ;Start alternativer Monitor im RAM
 ;
@@ -834,6 +829,9 @@ ALTMO:  LD   (0FFFEH),HL  ;wird von Fkt. "Y" angesprungen
         IFDEF MONI21      ;Monitor 10/88 - BWS-CPLD-Version 2021
 ;
         DEFB 5BH,5BH      ;Interruptvektor CTC --> 5B5BH ???
+;
+;
+; RAM von 0000H bis 0FFFH einschalten
 ;
 ALTMO:  LD   (0FFFEH),HL  ;wird von Fkt. "Y" angesprungen
         JP   0FFFEH       ;Start alternativer Monitor im RAM 
@@ -1185,25 +1183,25 @@ L04B5:  INC  DE
         ENDIF
         IFDEF MONI11      ;Monitor 10/88 - BWS-CPLD-Version 2011
 ;
-; Funktion "Y" --> alternativer Monitor im RAM (TODO)
+; Funktion "Y" --> alternativer Monitor im RAM
 ;
         DEFB 00H,09H,59H,0DH 
         CALL ARGLD        ;ARG1-->HL ARG2-->DE ARG3-->BC
-        LD   B,10H 
+        LD   B,10H        ;BC = 1000H, DE = 0000H
         LDIR 
-        LD   HL,16D3H 
+        LD   HL,16D3H     ;OUT (P16),A --> RAM einblenden
         JP   ALTMO 
 ;
         ENDIF
         IFDEF MONI21      ;Monitor 10/88 - BWS-CPLD-Version 2021
 ;
-; Funktion "Y" --> alternativer Monitor im RAM (TODO)
+; Funktion "Y" --> alternativer Monitor im RAM
 ;
         DEFB 00H,09H,59H,0DH 
         CALL ARGLD        ;ARG1-->HL ARG2-->DE ARG3-->BC
-        LD   B,10H 
+        LD   B,10H        ;BC = 1000H, DE = 0000H 
         LDIR 
-        LD   HL,16D3H 
+        LD   HL,16D3H     ;OUT (P16),A --> RAM einblenden
         JP   ALTMO 
 ;
         ENDIF
@@ -2749,21 +2747,8 @@ L0E30:  LD   E,D
         JR   NC,L0E37 
         RES  1,A 
 L0E37:  OUT  (P08),A 
-        IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
-        PUSH HL
-        POP  HL
-        LD   A,A
-        ENDIF
-        IFDEF MONI11      ;Monitor 10/88 - BWS-CPLD-Version 2011
         LD   L,(HL)
-        NOP
-        NOP
-        ENDIF
-        IFDEF MONI21      ;Monitor 10/88 - BWS-CPLD-Version 2021
-        LD   L,(HL)
-        NOP
-        NOP
-        ENDIF
+        INC  IX
         DEC  E 
         JR   NZ,L0E37 
         SRL  C 
