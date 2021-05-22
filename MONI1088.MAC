@@ -1,6 +1,6 @@
 ; ************************************************************
 ; *                                                          *
-; *  MONITOR 10/88 fuer den AC 1     Version vom 22.04.2021  *
+; *  MONITOR 10/88 fuer den AC 1     Version vom 22.05.2021  *
 ; *                                                          *
 ; ************************************************************
 ;
@@ -9,11 +9,11 @@
 ; Korrekturen an der Originalversion 1988: 
 ; - Fuer die Nutzung der Grafiktaste wurde Adresse 02A9H 
 ;   von FFH auf 21H geaendert
-; - korrekte V.24-Baudraten für den Betrieb mit 2 MHz
+; - korrekte V.24-Baudraten fuer den Betrieb mit 2 MHz
 ;   (das bisherige Timing war fuer 2,4768 MHz ausgelegt)
 ;   Korrekturen auf Adr. 00F9H bis 00FBH und 0E39H bis 0E3BH
 ;
-; zusätzliche Aenderungen an der BWS-CPLD-Version 2011:
+; zusaetzliche Aenderungen an der BWS-CPLD-Version 2011:
 ; - Fehler beim Monitorkommando "7" fuer die PIO2-Karte:
 ;   Adresse 0FD4H von 10H auf 20H korrigiert
 ;
@@ -397,59 +397,63 @@ L013A:  INC  HL
         RET 
 ;
 ;
-; UP-Routine zu InHex (TODO)
+; UP-Routine zu InHex
 ; -------------------
 ;
-L0146:  LD   A,(DE) 
-        CP   20H 
+UPINHX: LD   A,(DE) 
+        CP   20H          ;Leerzeichen am Anfang ignorieren
         DEC  DE 
-        JR   Z,L0146 
+        JR   Z,UPINHX 
         INC  DE 
         XOR  A 
-        LD   HL,1858H 
+        LD   HL,1858H     ;Zwischenspeicher initialisieren
         LD   (HL),A 
         INC  HL 
         LD   (HL),A 
         INC  HL 
         LD   (HL),A 
-L0156:  LD   A,(DE) 
+UPINH1: LD   A,(DE)       ;ASCII-Zahl lesen
         DEC  HL 
-        DEC  HL 
-        SUB  30H 
+        DEC  HL           ;HL = 1858H
+        SUB  30H          ;ASCII --> BIN
+        RET  M            ;...wenn Ergebnis negativ ist
+        CP   0AH          ;A > "9" ?
+        JR   C,UPINH2     ;nein
+        SUB  07H          ;41H - 30H - 07H = 0AH Bingo. 
+        CP   0AH          ;A < "A" ?
         RET  M 
-        CP   0AH 
-        JR   C,L0168 
-        SUB  07H 
-        CP   0AH 
-        RET  M 
-        CP   10H 
+        CP   10H          ;A > "F" ?
         RET  P 
-L0168:  DEC  DE 
-        INC  (HL) 
+UPINH2: DEC  DE           ;DE --> naechste Ziffer
+        INC  (HL)         ;(1858H) += 1
         INC  HL 
-        RLD 
+        RLD               ;Rotiere Ziffer links zw. A und (HL)
         INC  HL 
-        RLD 
-        JR   L0156 
+        RLD               ;Rotiere Ziffer links zw. A und (HL)
+        JR   UPINH1 
 ;
 ;
-; UP InHex (TODO)
+; UP InHex
 ; --------
+;
+;Wandelt eine maximal vierstellige in ASCII-Zeichen angegebene
+;Zahl ab (DE) abwaerts in deren hexadezimalen Wert um, der dann
+;in HL steht. DE wird entsprechend dekrementiert.
 ;
 INHEX:  PUSH BC 
         PUSH AF 
-        CALL L0146 
-        INC  HL 
+        CALL UPINHX       ;Umwandlung ASCII --> HEX
+        INC  HL           ;HL = 1859H
         LD   B,H 
-        LD   C,L 
-        LD   L,(HL) 
-        INC  BC 
-        LD   A,(BC) 
-        LD   H,A 
-        POP  BC 
-        OR   L 
-        LD   A,B 
-        POP  BC 
+        LD   C,L          ;BC = HL
+        LD   L,(HL)       ;NWT --> L
+        INC  BC
+        LD   A,(BC)
+        LD   H,A          ;HWT --> H
+        POP  BC           ;AF zurueckholen nach BC
+        OR   L            ;Flags setzen (HL = 0?)
+        LD   A,B          ;Akku auf alten Wert setzen
+        POP  BC           ;BC zurueckholen
         RET 
 ;
 ;
