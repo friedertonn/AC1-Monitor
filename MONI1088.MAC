@@ -1,6 +1,6 @@
 ; ************************************************************
 ; *                                                          *
-; *  MONITOR 10/88 fuer den AC 1     Version vom 22.05.2021  *
+; *  MONITOR 10/88 fuer den AC 1     Version vom 25.06.2021  *
 ; *                                                          *
 ; ************************************************************
 ;
@@ -359,39 +359,42 @@ PROGX:  JP   STARTX       ;Sprung zur ROM-Bank
 ; UP 'MS 30', Zeitschleife 30 ms
 ; ------------------------------
 ;
+; 26 Takte * 2307 Durchläufe = 59982 Takte --> 30 ms
+;
 MS30:   PUSH BC 
         LD   BC,0903H     ;Zeitkonstante fuer 30ms
-MS30A:  DEC  BC 
-        LD   A,B 
-        OR   C 
-        JR   NZ,MS30A 
+MS30A:  DEC  BC           ;6 Takte
+        LD   A,B          ;4 Takte
+        OR   C            ;4 Takte
+        JR   NZ,MS30A     ;12 Takte 
         POP  BC 
         RET 
 ;
 ;
 ; INLINE:
-; liest eine Zeile, die mit cr abgeschlossen wird, auf dem Schirm ein
-; und legt den Anfang der Zeile in den Zellen 181A...181B ab
-; -------------------------------------------------------------------
+; liest eine Zeile, die mit CR abgeschlossen wird, auf dem Schirm
+; ein und legt die RAM-Adresse vom Anfang der Zeile in den Zellen 
+; 181A und 181B ab
+; ---------------------------------------------------------------
 ;
 INLINE: PUSH AF 
         PUSH HL 
         RST  18H 
-        DEFM " #" 
+        DEFM " #"         ;Prompt ausgeben
         DEFB 20H+80H 
         NOP 
-L012F:  RST  08H 
-        LD   HL,(1800H) 
-        RST  10H 
+INLIN1: RST  08H          ;1 Zeichen lesen
+        LD   HL,(1800H)   ;Kursorposition merken
+        RST  10H          ;1 Zeichen ausgeben
         CP   0DH 
-        JR   NZ,L012F 
-        LD   A,23H 
-L013A:  INC  HL 
-        CP   (HL) 
-        JR   NZ,L013A 
+        JR   NZ,INLIN1    ;Wiederholung, bis CR gedrueckt wurde
+        LD   A,23H        ;"#"
+INLIN2: INC  HL           ;1 Kursorposition zurueck
+        CP   (HL)         ;sind wir beim Prompt angekommen?
+        JR   NZ,INLIN2    ;nein
         DEC  HL 
-        DEC  HL 
-        LD   (181AH),HL 
+        DEC  HL           ;jetzt 2 Kursorpositionen nach vorn
+        LD   (181AH),HL   ;Bildschirm-Adresse speichern
         POP  HL 
         POP  AF 
         RET 
