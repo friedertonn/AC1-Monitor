@@ -1,6 +1,6 @@
 ; ************************************************************
 ; *                                                          *
-; *  MONITOR 10/88 fuer den AC 1     Version vom 25.06.2021  *
+; *  MONITOR 10/88 fuer den AC 1     Version vom 11.07.2021  *
 ; *                                                          *
 ; ************************************************************
 ;
@@ -359,7 +359,7 @@ PROGX:  JP   STARTX       ;Sprung zur ROM-Bank
 ; UP 'MS 30', Zeitschleife 30 ms
 ; ------------------------------
 ;
-; 26 Takte * 2307 Durchläufe = 59982 Takte --> 30 ms
+; 26 Takte * 2307 Durchlaeufe = 59982 Takte --> 30 ms
 ;
 MS30:   PUSH BC 
         LD   BC,0903H     ;Zeitkonstante fuer 30ms
@@ -400,7 +400,7 @@ INLIN2: INC  HL           ;1 Kursorposition zurueck
         RET 
 ;
 ;
-; UP-Routine zu InHex
+; UP-Routine zu INHEX
 ; -------------------
 ;
 UPINHX: LD   A,(DE) 
@@ -436,7 +436,7 @@ UPINH2: DEC  DE           ;DE --> naechste Ziffer
         JR   UPINH1 
 ;
 ;
-; UP InHex
+; UP INHEX
 ; --------
 ;
 ;Wandelt eine maximal vierstellige in ASCII-Zeichen angegebene
@@ -460,7 +460,7 @@ INHEX:  PUSH BC
         RET 
 ;
 ;
-; UP OutHex (TODO)
+; UP OUTHEX (TODO)
 ; gibt den Akku als zweistellige Hexzahl auf dem Schirm aus
 ; ---------------------------------------------------------
 ;
@@ -482,15 +482,15 @@ L0197:  RST  10H
         RET 
 ;
 ;
-; UP OutHL (TODO)
+; UP OUTHL
 ; gibt das HL-Register als vierstellige Hexzahl auf dem Schirm aus
 ; ----------------------------------------------------------------
 ;
 OUTHL:  PUSH AF 
         LD   A,H 
-        CALL OUTHEX 
+        CALL OUTHEX       ;H ausgeben
         LD   A,L 
-        CALL OUTHEX 
+        CALL OUTHEX       ;L ausgeben
         POP  AF 
         RET 
 ;
@@ -1226,39 +1226,39 @@ ARGLD:  LD   HL,(ARG1)
         DEFB 0FFH,0FFH    ;Platzhalter 2 Byte
 ;
 ;
-; Funktion "P" --> Pattern (TODO)
+; Funktion "P" --> Pattern
 ;
         DEFB 00H,09H,50H,0DH 
         CALL ARGLD        ;ARG1-->HL ARG2-->DE ARG3-->BC 
-        LD   (HL),C 
+        LD   (HL),C       ;Pattern --> (HL)
         PUSH HL 
-        XOR  A 
+        XOR  A            ;wegen SBC-Befehl
         EX   DE,HL 
-        SBC  HL,DE 
+        SBC  HL,DE        ;Wert fuer BC berechnen
         LD   B,H 
         LD   C,L 
-        POP  HL 
-        INC  DE 
-L04E9:  LDIR 
+        POP  HL           ;HL zurueck
+        INC  DE           ;DE = HL + 1
+JPLDIR: LDIR 
         RET 
 ;
 ;
-; Funktion "T" --> Transfer (TODO)
+; Funktion "T" --> Transfer
 ;
         DEFB 00H,09H,54H,0DH 
         CALL ARGLD        ;ARG1-->HL ARG2-->DE ARG3-->BC 
-        XOR  A 
+        XOR  A            ;wegen SBC-Befehl
         PUSH HL 
-        SBC  HL,DE 
+        SBC  HL,DE        ;Carry-Flag wird bei HL < DE gesetzt
         POP  HL 
-        JR   NC,L04E9 
-        ADD  HL,BC 
+        JR   NC,JPLDIR    ;Sprung zum LDIR-Befehl (HL >= DE)
+        ADD  HL,BC
         EX   DE,HL 
         ADD  HL,BC 
         EX   DE,HL 
-        DEC  HL 
-        DEC  DE 
-        LDDR 
+        DEC  HL           ;HL = HL + BC - 1
+        DEC  DE           ;DE = DE + BC - 1
+        LDDR              ;HL und DE zaehlen nach unten
         RET 
 ;
 ;
@@ -1351,11 +1351,12 @@ L0585:  INC  HL
         RET 
 ;
 ;
-; ??? (TODO)
+; UP OUTHL1
+; gibt das HL-Register als vierstellige Hexzahl auf dem Schirm aus
 ;
 
-L0589:  CALL OUTHL 
-L058C:  RST  18H 
+OUTHL1: CALL OUTHL        ;HL auf dem Bildschirm ausgeben
+OUTHL2: RST  18H          ;4 Leerzeichen auf dem BS ausgeben
         DEFM "   " 
         DEFB 20H+80H 
         RET 
@@ -1387,7 +1388,7 @@ L05CE:  RST  18H
         DEFM "  BP" 
         DEFB 3AH+80H      ;":+80H 
         LD   HL,(1879H) 
-        CALL L0589 
+        CALL OUTHL1       ;HL auf dem Bildschirm ausgeben
         RST  18H 
         DEFM "BS" 
         DEFB 3AH+80H      ;":+80H 
@@ -1425,7 +1426,7 @@ L0603:  LD   A,(DE)
         DEC  IX 
         DEFB 0DDH,6EH,00H ;Befehl = LD L,(IX+d)
         DEC  IX 
-        CALL L0589
+        CALL OUTHL1       ;HL auf dem Bildschirm ausgeben
         DJNZ L0603 
         DEC  C 
         JR   NZ,L05F3 
@@ -1517,38 +1518,38 @@ L067E:  CALL INLINE
         RET 
 ;
 ;
-; Funktion "C" --> Compare (TODO)
+; Funktion "C" --> Compare
 ;
         DEFB 00H,09H,43H,0DH 
         CALL ARGLD        ;ARG1-->HL ARG2-->DE ARG3-->BC 
-L069C:  LD   A,(DE) 
+COMP1:  LD   A,(DE) 
         CP   (HL) 
-        JR   Z,L06BF 
-        RST  18H 
+        JR   Z,COMP2      ;(HL) und (DE) sind identisch
+        RST  18H          ;Ausgabe der Differenz:
         DEFM " " 
         DEFB 20H+80H 
-        CALL L0589 
+        CALL OUTHL1       ;HL auf dem Bildschirm ausgeben
         LD   A,(HL) 
-        CALL OUTHEX 
-        CALL L058C 
-        CALL L058C 
+        CALL OUTHEX       ;(HL) auf dem Bildschirm ausgeben
+        CALL OUTHL2       ;4 Leerzeichen auf dem BS ausgeben
+        CALL OUTHL2       ;dto.
         EX   DE,HL 
-        CALL L0589 
+        CALL OUTHL1       ;DE auf dem Bildschirm ausgeben
         EX   DE,HL 
         LD   A,(DE) 
-        CALL OUTHEX 
+        CALL OUTHEX       ;(DE) auf dem Bildschirm ausgeben
         RST  18H 
-        DEFB 0DH+80H 
-        RST  08H 
-        CP   0DH 
-        RET  NZ 
-L06BF:  DEC  BC 
+        DEFB 0DH+80H      ;neue Zeile und Tastaturabfrage:
+        RST  08H
+        CP   0DH          ;<ENTER> gedrueckt?
+        RET  NZ           ;nein --> die Routine beenden
+COMP2:  DEC  BC           ;ja --> weiter vergleichen
         INC  HL 
-        INC  DE 
+        INC  DE           ;HL++; DE++; BC--;
         LD   A,B 
         OR   C 
-        RET  Z 
-        JR   L069C 
+        RET  Z            ;Ende bei BC = 0
+        JR   COMP1        ;naechster Vergleich
 ;
 ;
 ; Funktion "B" --> Breakpoint (TODO)
@@ -2171,46 +2172,47 @@ RST18A: LD   A,(HL)
         DEFB 0FFH,0FFH    ;Platzhalter 4 Byte
 ;
 ;
-; Funktion "I" --> Init (TODO)
+; Funktion "I" --> Initialize
 ;
         DEFB 00H,09H,49H,0DH 
         LD   HL,1858H 
         LD   B,26H 
-L0AA8:  LD   (HL),00H 
-        INC  HL 
-        DJNZ L0AA8 
+INIRSA: LD   (HL),00H     ;RAM-Zellen von 1858H bis 187DH
+        INC  HL           ;mit 00H beschreiben
+        DJNZ INIRSA 
         RST  18H 
-        DEFM " SP" 
+        DEFM " SP"        ;= Stack Pointer
         DEFB 20H+80H 
-        CALL L0ACE 
-        LD   (1877H),HL 
-        JR   L0ACA 
+        CALL UPRAMT       ;HL = letzte RAM-Zelle + 1
+        LD   (1877H),HL   ;Anwenderstack festlegen
+        JR   OUTHL3       ;HEX-Adresse auf BS ausgeben
 ;
 ;
-; Funktion "O" --> RAM-Test (TODO)
+; Funktion "O" --> RAM-Test
 ;
         DEFB 00H,09H,4FH,0DH 
-        LD   HL,(ARG1) 
+        LD   HL,(ARG1)    ;ARG1 laden
         RST  18H 
-        DEFM " ME" 
+        DEFM " ME"        ;= Memory End
         DEFB 20H+80H 
-        CALL L0ACE 
-        DEC  HL 
-L0ACA:  JP   OUTHL 
-;
+        CALL UPRAMT       ;UP RAM-Test
+        DEC  HL           ;Adresse der letzten RAM-Zelle
+OUTHL3: JP   OUTHL        ;auf BS ausgeben
 ;
         DEFB 0FFH         ;Platzhalter 1 Byte
 ;
 ;
-L0ACE:  LD   A,(HL) 
-        CPL 
-        LD   (HL),A 
+; UP RAM-Test
+;
+UPRAMT: LD   A,(HL) 
+        CPL               ;Akku bitweise negieren
+        LD   (HL),A       ;Komplement zurueckschreiben
         CP   (HL) 
-        RET  NZ 
-        CPL 
-        LD   (HL),A 
-        INC  HL 
-        JR   L0ACE 
+        RET  NZ           ;Abbruch bei Fehler
+        CPL               ;Akku bitweise negieren
+        LD   (HL),A       ;Originalwert zurueckschreiben
+        INC  HL           ;naechste Speicheradresse
+        JR   UPRAMT       ;LOOP
 ;
 ;
 ; Tabelle fuer IO-Befehle (17x Port, Befehl, Port, Befehl, ...)
