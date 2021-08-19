@@ -9,6 +9,8 @@
                                                                 
                                                                 
                                                                 
+Aenderungen in der Dokumentation: 
+- V 24 - Ausgabe UP  beginnt auf Adresse 0DF9H
                                                                 
                                                                 
 Der Monitor 10/88 belegt 4kB Speicher im Adressbereich          
@@ -519,7 +521,7 @@ Adressen:   Eingabekanal       08     (dez. 8)
             I/O - Byte       1821                               
    V 24 Kontrollregister     1820                               
           User - Eingabe     18F0     User - Ausgabe  18F3      
-       V 24 - Eingabe UP     01D6  V 24 - Ausgabe UP  0FE8      
+       V 24 - Eingabe UP     01D6  V 24 - Ausgabe UP  0DF9      
                                                                 
                                                                 
 V 24 - Schnittstelle (RS 232c)                                  

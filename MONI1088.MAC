@@ -1,6 +1,6 @@
 ; ************************************************************
 ; *                                                          *
-; *  MONITOR 10/88 fuer den AC 1     Version vom 11.07.2021  *
+; *  MONITOR 10/88 fuer den AC 1     Version vom 19.08.2021  *
 ; *                                                          *
 ; ************************************************************
 ;
@@ -23,6 +23,7 @@
 ; - die Monitorkommandos "X", "b" und "r" wurden entfernt,
 ;   weil ich kein Modul-1 besitze
 ; - neues Monitorkommando "X": Start der AC1-2010-ROM-Bank
+; - V.24-Kontrollregister (Adr. 023EH) wieder auf 02H
 ;
 ;
 ; ***************************************************
@@ -289,40 +290,42 @@ L00CA:  DEC  A
         JR   Z,L00C1 
         LD   (HL),C 
         JR   L00C3 
-;
-; anderes Eingabegeraet (keine Tastatur)
-;
 NOTAST: RRCA              ;Rotiere A-Register rechts
         JR   NC,NOV24     ;anderes Eingabegeraet (kein V.24)
-L00D9:  LD   A,(1820H) 
-        AND  07H 
-        LD   B,A 
+;
+;
+; Eingabegeraet = V.24
+; --------------------
+;
+V24IN1: LD   A,(1820H)    ;V.24-Kontrollregister
+        AND  07H          ;Selektion der Baudrate
+        LD   B,A          ;B = Baudrate (kodiert)
         LD   A,01H 
-L00E1:  ADD  A,A 
-        DJNZ L00E1 
-        LD   H,A 
+V24IN2: ADD  A,A 
+        DJNZ V24IN2 
+        LD   H,A          ;19200 Baud --> H = 2
         XOR  A 
-        OUT  (P08),A 
-L00E8:  IN   A,(P08) 
-        AND  01H 
-        JR   NZ,L00E8 
-        LD   B,H 
-L00EF:  LD   A,R 
-        LD   A,A 
-        DJNZ L00EF 
-        LD   B,0AH 
-L00F6:  LD   L,H 
-        RR   C 
-L00F9:  LD   L,(HL)
-        INC  IX
+        OUT  (P08),A      ;Steuerleitung auf Low setzen
+V24IN3: IN   A,(P08)      ;Daten lesen PIO2, Port A
+        AND  01H          ;BIT 0 auswerten (RxD)
+        JR   NZ,V24IN3    ;warten auf fallende Flanke
+        LD   B,H
+V24IN4: LD   A,R          ;Zeitschleife bis zur Bit-Abtastung
+        LD   A,A
+        DJNZ V24IN4
+        LD   B,10         ;10 Durchlaeufe Bit-Abtastung
+V24IN5: LD   L,H 
+        RR   C            ;C rechts rotieren durch CY
+V24IN6: LD   L,(HL)       ;Baudratenanpassung fuer 2 MHz
+        INC  IX           ;Baudratenanpassung fuer 2 MHz
         DEC  L 
-        IN   A,(P08) 
-        JR   NZ,L00F9 
-        RRA 
-        DJNZ L00F6 
-        LD   A,0AH 
-        OUT  (P08),A 
-        LD   A,C 
+        IN   A,(P08)      ;Daten lesen PIO2, Port A
+        JR   NZ,V24IN6    ;warten auf fallende Flanke
+        RRA               ;empfangenes Bit 0 --> CY
+        DJNZ V24IN5 
+        LD   A,0AH
+        OUT  (P08),A      ;Steuerleitung auf High setzen
+        LD   A,C          ;empfangenes Zeichen --> A
         JR   ENDE8        ;Ende von RST08
 ;
         DEFB 0FFH         ;Platzhalter 1 Byte
@@ -536,12 +539,12 @@ L01D1:  LD   SP,(1858H)
         RET 
 ;
 ;
-; V 24 - Eingabe UP (TODO)
+; V.24 - Eingabe UP
 ; -----------------
 ;
 V24IN:  PUSH HL
         PUSH BC 
-        JP   L00D9 
+        JP   V24IN1 
 ;
 L01DB:  RST  18H 
         DEFM " " 
@@ -603,15 +606,15 @@ SPTAB:  JP   RST08        ;Einsprungpunkt fuer RST 08H
         DEFM "SCH"        ;Warmstartcode
         IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
         DEFB 0AFH         ;Warmstartcode
-        DEFB 02H          ;Kommandocode V 24 (Adresse 1820H)
+        DEFB 02H          ;Kommando-Code V.24 (9600 Baud)
         ENDIF
         IFDEF MONI11      ;Monitor 10/88 - BWS-CPLD-Version 2011
         DEFB 00H          ;Warmstartcode
-        DEFB 43H          ;Kommandocode V 24 (Adresse 1820H)
+        DEFB 43H          ;Kommando-Code V.24 (4800 Baud)
         ENDIF
         IFDEF MONI21      ;Monitor 10/88 - BWS-CPLD-Version 2021
         DEFB 00H          ;Warmstartcode
-        DEFB 43H          ;Kommandocode V 24 (Adresse 1820H)
+        DEFB 02H          ;Kommando-Code V.24 (9600 Baud)
         ENDIF
         DEFB 11H          ;Ein/Ausgabebyte (Adresse 1821H)
 ;
@@ -1728,7 +1731,7 @@ L07D0:  RST  08H
 ;
 ; Sprungverteiler
 ;
-L07E8:  JP   V24          ;V 24
+L07E8:  JP   V24OUT       ;V.24 Ausgabe
 L07EB:  JP   MS30         ;MS 30
 L07EE:  JP   OUTHEX       ;OUTHEX
 L07F1:  JP   OUTHL        ;OUT HL
@@ -2718,50 +2721,54 @@ L0DF0:  CALL L0A31
         RET  NZ 
         JP   (HL) 
 ;
-V24:    PUSH HL 
+;
+; V.24 - Ausgabe UP
+; -----------------
+;
+V24OUT: PUSH HL 
         PUSH DE 
         PUSH BC 
         PUSH AF 
-        LD   HL,1820H 
+        LD   HL,1820H     ;V.24-Kontrollregister
         LD   BC,7FFFH 
-        BIT  4,(HL) 
-        JR   NZ,L0E0C 
+        BIT  4,(HL)
+        JR   NZ,V24OU1    ;--> 7 Datenbit, ungerade Paritaet
         BIT  5,(HL) 
-        JR   Z,L0E12 
-        LD   C,B 
-L0E0C:  AND  B 
-        JP   PE,L0E12 
-        SET  7,A 
-L0E12:  XOR  C 
-        LD   C,A 
+        JR   Z,V24OU2     ;--> 8 Datenbit, keine Paritaet
+        LD   C,B          ;else --> 7 Datenbit, gerade Paritaet
+V24OU1: AND  B 
+        JP   PE,V24OU2    ;Paritaet ist korrekt
+        SET  7,A          ;else --> Paritaetsflag setzen
+V24OU2: XOR  C            ;Zeichen negieren ...
+        LD   C,A          ;... und nach C kopieren
         LD   A,(HL) 
-        AND  07H 
-        LD   B,A 
+        AND  07H          ;Selektion der Baudrate
+        LD   B,A          ;B = Baudrate (kodiert)
         LD   A,01H 
-L0E1A:  ADD  A,A 
-        DJNZ L0E1A 
-        LD   D,A 
+V24OU3: ADD  A,A 
+        DJNZ V24OU3 
+        LD   D,A          ;19200 Baud --> D = 2
         BIT  6,(HL) 
-        JR   NZ,L0E28 
-L0E22:  IN   A,(P08) 
+        JR   NZ,V24OU5    ;kein Handshake
+V24OU4: IN   A,(P08)      ;else --> mit Handshake
         BIT  2,A 
-        JR   NZ,L0E22 
-L0E28:  LD   B,0AH 
-        BIT  3,(HL) 
-        JR   Z,L0E2F 
-        INC  B 
-L0E2F:  SCF 
-L0E30:  LD   E,D 
-        SET  1,A 
-        JR   NC,L0E37 
-        RES  1,A 
-L0E37:  OUT  (P08),A 
-        LD   L,(HL)
-        INC  IX
+        JR   NZ,V24OU4    ;warten auf fallende Flanke an A2
+V24OU5: LD   B,10         ;10 Durchlaeufe Bit-Ausgabe
+        BIT  3,(HL)       ;Anzahl der Stopbits?
+        JR   Z,V24OU6     ;1 Stopbit
+        INC  B            ;2 Stopbits --> 11 Durchlaeufe
+V24OU6: SCF               ;Carry-Flag setzen (Startbit)
+V24OU7: LD   E,D          ;19200 Baud --> E = 2
+        SET  1,A          ;TxD = High
+        JR   NC,V24OU8    ;Carry-Flag auswerten
+        RES  1,A          ;TxD = Low
+V24OU8: OUT  (P08),A      ;Ausgabe an A1 (TxD)
+        LD   L,(HL)       ;Baudratenanpassung fuer 2 MHz
+        INC  IX           ;Baudratenanpassung fuer 2 MHz
         DEC  E 
-        JR   NZ,L0E37 
-        SRL  C 
-        DJNZ L0E30 
+        JR   NZ,V24OU8 
+        SRL  C            ;0 -> B7 ... B0 -> CY
+        DJNZ V24OU7       ;naechstes Bit ausgeben
         POP  AF 
         POP  BC 
         POP  DE 
@@ -2930,7 +2937,7 @@ L0F07:  SET 5,(HL)        ;Code = 0CBH, 0EEH
 RST10C: BIT  4,(HL) 
         CALL NZ,FKT33     ;Funktion auf Adresse 0033H - Ausgabe ueber Bildschirm
         BIT  5,(HL) 
-        CALL NZ,V24 
+        CALL NZ,V24OUT    ;V.24 Ausgabe
         BIT  6,(HL) 
         CALL NZ,0FFFFH 
         BIT  7,(HL) 
