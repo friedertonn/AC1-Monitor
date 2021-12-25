@@ -1,6 +1,6 @@
 ; ************************************************************
 ; *                                                          *
-; *  MONITOR 10/88 fuer den AC 1     Version vom 19.08.2021  *
+; *  MONITOR 10/88 fuer den AC 1     Version vom 25.12.2021  *
 ; *                                                          *
 ; ************************************************************
 ;
@@ -18,7 +18,6 @@
 ;   Adresse 0FD4H von 10H auf 20H korrigiert
 ;
 ; Aenderungen an der BWS-CPLD-Version 2011 --> 2021:
-; - Grafiktaste 02A9H ist FFH (= abgeschaltet)
 ; - Farbbyte 0F9FH ist 4FH (= weiss auf blauem Hintergrund)
 ; - die Monitorkommandos "X", "b" und "r" wurden entfernt,
 ;   weil ich kein Modul-1 besitze
@@ -244,7 +243,7 @@ INIT7:  XOR  A
         ENDIF
         IFDEF MONI21      ;Monitor 10/88 - BWS-CPLD-Version 2021
         DEFM "AC 1 * MONITOR (" 
-        DEFM "10/88) * 04/2021" 
+        DEFM "10/88) * 12/2021" 
         ENDIF
         DEFB 0DH,0DH+80H 
         JP   GETCO        ;Sprung in die Monitoreingabeschleife
@@ -707,15 +706,7 @@ L02A0:  CALL L02C3
 ; schliessen. Die LED leuchtet bei eingeschalteter Grafiktas-      
 ; tatur. Aenderung im Monitor notwendig!                            
 ; Adresse 02A9 Datenbyte FF in 21 aendern.                         
-        IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
         CP   21H          ;Grafiktaste wird verwendet
-        ENDIF
-        IFDEF MONI11      ;Monitor 10/88 - BWS-CPLD-Version 2011
-        CP   21H          ;Grafiktaste wird verwendet
-        ENDIF
-        IFDEF MONI21      ;Monitor 10/88 - BWS-CPLD-Version 2021
-        CP   0FFH         ;Grafiktaste wird nicht verwendet
-        ENDIF
         JR   C,L02BB 
         IN   A,(P05) 
         BIT  2,A 
