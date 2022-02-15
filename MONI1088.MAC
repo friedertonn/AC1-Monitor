@@ -1,6 +1,6 @@
 ; ************************************************************
 ; *                                                          *
-; *  MONITOR 10/88 fuer den AC 1     Version vom 13.01.2022  *
+; *  MONITOR 10/88 fuer den AC 1     Version vom 15.02.2022  *
 ; *                                                          *
 ; ************************************************************
 ;
@@ -474,24 +474,24 @@ INHEX:  PUSH BC
         RET 
 ;
 ;
-; UP OUTHEX (TODO)
+; UP OUTHEX
 ; gibt den Akku als zweistellige Hexzahl auf dem Schirm aus
 ; ---------------------------------------------------------
 ;
 OUTHEX: PUSH AF 
+        RRA               ;Rechtsrotation von A durch CY
         RRA 
         RRA 
         RRA 
-        RRA 
-        CALL L018C 
+        CALL OUTHX1       ;HWT ausgeben
         POP  AF 
-L018C:  PUSH AF 
+OUTHX1: PUSH AF           ;im 2. Durchlauf NWT ausgeben
         AND  0FH 
         ADD  A,30H 
-        CP   3AH 
-        JR   C,L0197 
-        ADD  A,07H 
-L0197:  RST  10H 
+        CP   3AH          ;A = (0..9)?
+        JR   C,OUTHX2 
+        ADD  A,07H        ;A = (A..F)
+OUTHX2: RST  10H 
         POP  AF 
         RET 
 ;
@@ -512,8 +512,8 @@ OUTHL:  PUSH AF
 ; UP, CPU-Register ausraeumen nach RSA
 ; ------------------------------------
 ;
-CPURSA: LD   (1858H),SP 
-        LD   SP,1875H 
+CPURSA: LD   (1858H),SP   ;Stack merken
+        LD   SP,1875H     ;Stack auf das Ende der RSA setzen
         PUSH IY 
         PUSH IX 
         PUSH HL 
@@ -526,14 +526,14 @@ CPURSA: LD   (1858H),SP
         PUSH DE 
         PUSH BC 
         PUSH AF 
-        JR   L01D1 
+        JR   RSACP1       ;alten Stack zurueck und Tschuess
 ;
 ;
 ; UP, CPU-Register einraeumen von RSA
 ; -----------------------------------
 ;
-RSACPU: LD   (1858H),SP 
-        LD   SP,1861H 
+RSACPU: LD   (1858H),SP   ;Stack merken
+        LD   SP,1861H     ;Stack auf den Anfang der RSA setzen
         POP  AF 
         POP  BC 
         POP  DE 
@@ -546,7 +546,7 @@ RSACPU: LD   (1858H),SP
         POP  HL 
         POP  IX 
         POP  IY 
-L01D1:  LD   SP,(1858H) 
+RSACP1: LD   SP,(1858H)   ;alten Stack zurueck
         RET 
 ;
 ;
@@ -634,8 +634,8 @@ SPTAB:  JP   RST08        ;Einsprungpunkt fuer RST 08H
         DEFB 11H          ;Ein/Ausgabebyte (Adresse 1821H)
 ;
 ;
-; Einsprungpunkt fuer RST 38H und NMI (TODO)
-; -----------------------------------------
+; Einsprungpunkt fuer RST 38H und NMI
+; -----------------------------------
 ;
 BREAK:  CALL CPURSA        ;UP, CPU-Register ausraeumen nach RSA
         POP  HL
@@ -748,14 +748,14 @@ L02C5:  DEC  A
         RET 
 ;
 ;
-; Funktion "W" --> Port ausgeben (TODO)
+; Funktion "W" --> Port ausgeben
 ;
         DEFB 00H,09H,57H,0DH 
         CALL ARGLD        ;ARG1-->HL ARG2-->DE ARG3-->BC 
-        LD   B,H 
-        LD   C,L 
-        OUT  (C),E 
-        RET 
+        LD   B,H          ;HL-->BC
+        LD   C,L
+        OUT  (C),E        ;OUT (C),r legt das komplette BC-Register
+        RET               ;auf den Adressbus
 ;
 ;
         IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
@@ -1102,7 +1102,7 @@ L0443:  DEC  HL
         DJNZ L0443 
         LD   (ARG2),HL 
         RST  18H 
-        DEFB 06H,03H+80H 
+        DEFB 06H,03H+80H  ;Kursor an Zeilenanfang + Zeile ab Kursor löschen
         LD   B,0CH 
 L044E:  RST  18H 
         DEFB 09H+80H 
@@ -1557,52 +1557,52 @@ COMP2:  DEC  BC           ;ja --> weiter vergleichen
         JR   COMP1        ;naechster Vergleich
 ;
 ;
-; Funktion "B" --> Breakpoint (TODO)
+; Funktion "B" --> Breakpoint
 ;
         DEFB 00H,09H,42H,0DH 
         LD   HL,(ARG1) 
-L06CE:  LD   (1879H),HL 
-        LD   DE,187BH 
-        LD   BC,0003H 
+L06CE:  LD   (1879H),HL   ;BP-Adresse merken
+        LD   DE,187BH     ;Merkzellen fuer urspruenglichen Code
+        LD   BC,0003H     ;3 Bytes ab BP sichern
         LDIR 
-        LD   HL,0743H 
-        LD   (1815H),HL 
+        LD   HL,RUNBP     ;Routine fuer Breakpoint-Bearbeitung
+        LD   (1815H),HL   ;Sprungtabelle fuer RST38 patchen
         RET 
 ;
 ;
-; Funktion "G" --> Go (TODO)
+; Funktion "G" --> Go
 ;
-        DEFB 00H,09H,47H,0DH 
-        LD   HL,(1875H) 
-        LD   (ARG1),HL 
+        DEFB 00H,09H,47H,0DH
+        LD   HL,(1875H)   ;PC-Register --> HL
+        LD   (ARG1),HL    ;als ARG1 speichern und weiter mit "J"
 ;
 ;
-; Funktion "J" --> Jump (TODO)
+; Funktion "J" --> Jump
 ;
-        DEFB 00H,09H,4AH,0DH 
-        LD   A,(1815H) 
-        CP   40H 
-        JR   Z,L06FA 
-        LD   HL,(1879H) 
-        LD   (HL),0FFH
-L06FA:  LD   HL,(1877H) 
-        LD   B,0AH 
-        DEFB 2BH          ;ZELDIS: DEC  L 
-L0700:  LD   A,(HL) 
-        CPL 
+        DEFB 00H,09H,4AH,0DH
+        LD   A,(1815H)    ;nachschauen, wie die Sprungtab. f. RST38 aussieht
+        CP   40H          ;Test, ob "BREAK" (0240H) eingetragen ist
+        JR   Z,JUMP1      ;ja, es wurde also kein Breakpoint gesetzt
+        LD   HL,(1879H)   ;nein, lade Breakpoint-Adresse
+        LD   (HL),0FFH    ;setze "RST38" auf Breakpoint-Adresse
+JUMP1:  LD   HL,(1877H)   ;lade SP-Adresse
+        LD   B,10         ;Teste fuer den Stackpointer 10 Bytes abwärts, 
+        DEC  HL           ;ob er im RAM oder auf dem EPROM unterwegs ist...
+JUMP2:  LD   A,(HL) 
+        CPL               ;Bitweises Negieren von A
         LD   (HL),A 
         CP   (HL) 
-        JR   NZ,L070E 
-        CPL 
+        JR   NZ,JUMP3     ;das ist 'ne EPROM-Zelle --> SP = 2000H setzen!
+        CPL               ;alles wieder zurueckdrehen
         LD   (HL),A 
-        DJNZ L0700 
-        LD   HL,(1877H) 
-        DEFB 0DDH         ;LD IX,2000H (+ nxt. Befehl ueberspringen !!!)
-L070E:  LD   HL,2000H
-        LD   SP,HL 
+        DJNZ JUMP2 
+        LD   HL,(1877H)   ;alles RAM-Speicher --> SP = (1877H)
+        DEFB 0DDH         ;LD IX,2000H (+ nxt. Befehl ueberspringen, genial!)
+JUMP3:  LD   HL,2000H
+        LD   SP,HL        ;SP setzen
         LD   HL,(ARG1) 
-        LD   (1875H),HL 
-        PUSH HL 
+        LD   (1875H),HL   ;HL-->PC
+        PUSH HL           ;Startadresse in den Stack
         JP   RSACPU       ;UP, CPU-Register einraeumen von RSA
 ;
 ;
@@ -1613,7 +1613,7 @@ L070E:  LD   HL,2000H
         CP   3AH 
         JR   Z,L072B 
         LD   HL,(ARG1) 
-L0728:  LD   (1875H),HL 
+EINZ1:  LD   (1875H),HL 
 L072B:  LD   SP,(1877H) 
         LD   HL,(1875H) 
         PUSH HL 
@@ -1629,17 +1629,17 @@ L072B:  LD   SP,(1877H)
         RET 
 ;
 ;
-; ??? (TODO)
+; Routine fuer Breakpoint
 ;
-        CALL CPURSA        ;UP, CPU-Register ausraeumen nach RSA 
-        LD   HL,(0233H) 
-        LD   (1815H),HL 
-        POP  HL 
+RUNBP:  CALL CPURSA       ;UP, CPU-Register ausraeumen nach RSA 
+        LD   HL,(0233H)   ;orig. Einsprungpunkt fuer RST38
+        LD   (1815H),HL   ;in den Sprungverteiler zurueckschreiben
+        POP  HL           ;PC nach RST38 aus dem Stack holen
         DEC  HL 
-        LD   A,(187BH) 
-        LD   (HL),A 
-        LD   (1877H),SP 
-        JR   L0728 
+        LD   A,(187BH)    ;1. Byte der BP-Sequenz 
+        LD   (HL),A       ;urspr. 1. Byte zurueckschreiben 
+        LD   (1877H),SP   ;SP sichern
+        JR   EINZ1 
 ;
         DEFS 3,0FFH       ;Platzhalter 3 Byte
 ;
@@ -1652,7 +1652,7 @@ L072B:  LD   SP,(1877H)
         LD   (1875H),DE 
         LD   SP,1856H     ;Stack 
         RST  18H 
-        DEFB 06H,0A0H 
+        DEFB 06H,20H+80H  ;Kursor an Zeilenanfang + 1 Leerzeichen
         CALL OUTHL 
         LD   B,05H 
 L0775:  RST  18H 

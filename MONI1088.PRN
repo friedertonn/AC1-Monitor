@@ -3,7 +3,7 @@
 
                                 ; ************************************************************
                                 ; *                                                          *
-                                ; *  MONITOR 10/88 fuer den AC 1     Version vom 13.01.2022  *
+                                ; *  MONITOR 10/88 fuer den AC 1     Version vom 15.02.2022  *
                                 ; *                                                          *
                                 ; ************************************************************
                                 ;
@@ -508,24 +508,24 @@
   0182    C9                            RET 
                                 ;
                                 ;
-                                ; UP OUTHEX (TODO)
+                                ; UP OUTHEX
                                 ; gibt den Akku als zweistellige Hexzahl auf dem Schirm aus
                                 ; ---------------------------------------------------------
                                 ;
   0183    F5                    OUTHEX: PUSH AF 
-  0184    1F                            RRA 
+  0184    1F                            RRA               ;Rechtsrotation von A durch CY
   0185    1F                            RRA 
   0186    1F                            RRA 
   0187    1F                            RRA 
-  0188    CD 018C                       CALL L018C 
+  0188    CD 018C                       CALL OUTHX1       ;HWT ausgeben
   018B    F1                            POP  AF 
-  018C    F5                    L018C:  PUSH AF 
+  018C    F5                    OUTHX1: PUSH AF           ;im 2. Durchlauf NWT ausgeben
   018D    E6 0F                         AND  0FH 
   018F    C6 30                         ADD  A,30H 
-  0191    FE 3A                         CP   3AH 
-  0193    38 02                         JR   C,L0197 
-  0195    C6 07                         ADD  A,07H 
-  0197    D7                    L0197:  RST  10H 
+  0191    FE 3A                         CP   3AH          ;A = (0..9)?
+  0193    38 02                         JR   C,OUTHX2 
+  0195    C6 07                         ADD  A,07H        ;A = (A..F)
+  0197    D7                    OUTHX2: RST  10H 
   0198    F1                            POP  AF 
   0199    C9                            RET 
                                 ;
@@ -546,11 +546,11 @@
                                 ; UP, CPU-Register ausraeumen nach RSA
                                 ; ------------------------------------
                                 ;
-  01A5    ED 73 1858            CPURSA: LD   (1858H),SP 
+  01A5    ED 73 1858            CPURSA: LD   (1858H),SP   ;Stack merken
 	MACRO-80 3.44	09-Dec-81	PAGE	1-9
 
 
-  01A9    31 1875                       LD   SP,1875H 
+  01A9    31 1875                       LD   SP,1875H     ;Stack auf das Ende der RSA setzen
   01AC    FD E5                         PUSH IY 
   01AE    DD E5                         PUSH IX 
   01B0    E5                            PUSH HL 
@@ -563,14 +563,14 @@
   01B7    D5                            PUSH DE 
   01B8    C5                            PUSH BC 
   01B9    F5                            PUSH AF 
-  01BA    18 15                         JR   L01D1 
+  01BA    18 15                         JR   RSACP1       ;alten Stack zurueck und Tschuess
                                 ;
                                 ;
                                 ; UP, CPU-Register einraeumen von RSA
                                 ; -----------------------------------
                                 ;
-  01BC    ED 73 1858            RSACPU: LD   (1858H),SP 
-  01C0    31 1861                       LD   SP,1861H 
+  01BC    ED 73 1858            RSACPU: LD   (1858H),SP   ;Stack merken
+  01C0    31 1861                       LD   SP,1861H     ;Stack auf den Anfang der RSA setzen
   01C3    F1                            POP  AF 
   01C4    C1                            POP  BC 
   01C5    D1                            POP  DE 
@@ -583,7 +583,7 @@
   01CC    E1                            POP  HL 
   01CD    DD E1                         POP  IX 
   01CF    FD E1                         POP  IY 
-  01D1    ED 7B 1858            L01D1:  LD   SP,(1858H) 
+  01D1    ED 7B 1858            RSACP1: LD   SP,(1858H)   ;alten Stack zurueck
   01D5    C9                            RET 
                                 ;
                                 ;
@@ -677,8 +677,8 @@
 
 
                                 ;
-                                ; Einsprungpunkt fuer RST 38H und NMI (TODO)
-                                ; -----------------------------------------
+                                ; Einsprungpunkt fuer RST 38H und NMI
+                                ; -----------------------------------
                                 ;
   0240    CD 01A5               BREAK:  CALL CPURSA        ;UP, CPU-Register ausraeumen nach RSA
   0243    E1                            POP  HL
@@ -796,17 +796,17 @@
   02CE    C9                            RET 
                                 ;
                                 ;
-                                ; Funktion "W" --> Port ausgeben (TODO)
+                                ; Funktion "W" --> Port ausgeben
                                 ;
   02CF    00 09 57 0D                   DEFB 00H,09H,57H,0DH 
 	MACRO-80 3.44	09-Dec-81	PAGE	1-13
 
 
   02D3    CD 04CA                       CALL ARGLD        ;ARG1-->HL ARG2-->DE ARG3-->BC 
-  02D6    44                            LD   B,H 
-  02D7    4D                            LD   C,L 
-  02D8    ED 59                         OUT  (C),E 
-  02DA    C9                            RET 
+  02D6    44                            LD   B,H          ;HL-->BC
+  02D7    4D                            LD   C,L
+  02D8    ED 59                         OUT  (C),E        ;OUT (C),r legt das komplette BC-Register
+  02DA    C9                            RET               ;auf den Adressbus
                                 ;
                                 ;
                                         IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
@@ -1168,7 +1168,7 @@
   0444    10 FD                         DJNZ L0443 
   0446    22 185D                       LD   (ARG2),HL 
   0449    DF                            RST  18H 
-  044A    06 83                         DEFB 06H,03H+80H 
+  044A    06 83                         DEFB 06H,03H+80H  ;Kursor an Zeilenanfang + Zeile ab Kursor lC6schen
   044C    06 0C                         LD   B,0CH 
   044E    DF                    L044E:  RST  18H 
   044F    89                            DEFB 09H+80H 
@@ -1652,55 +1652,55 @@
   06C5    18 D5                         JR   COMP1        ;naechster Vergleich
                                 ;
                                 ;
-                                ; Funktion "B" --> Breakpoint (TODO)
+                                ; Funktion "B" --> Breakpoint
                                 ;
   06C7    00 09 42 0D                   DEFB 00H,09H,42H,0DH 
   06CB    2A 185B                       LD   HL,(ARG1) 
-  06CE    22 1879               L06CE:  LD   (1879H),HL 
-  06D1    11 187B                       LD   DE,187BH 
-  06D4    01 0003                       LD   BC,0003H 
+  06CE    22 1879               L06CE:  LD   (1879H),HL   ;BP-Adresse merken
+  06D1    11 187B                       LD   DE,187BH     ;Merkzellen fuer urspruenglichen Code
+  06D4    01 0003                       LD   BC,0003H     ;3 Bytes ab BP sichern
   06D7    ED B0                         LDIR 
-  06D9    21 0743                       LD   HL,0743H 
-  06DC    22 1815                       LD   (1815H),HL 
+  06D9    21 0743                       LD   HL,RUNBP     ;Routine fuer Breakpoint-Bearbeitung
+  06DC    22 1815                       LD   (1815H),HL   ;Sprungtabelle fuer RST38 patchen
   06DF    C9                            RET 
                                 ;
                                 ;
-                                ; Funktion "G" --> Go (TODO)
+                                ; Funktion "G" --> Go
                                 ;
-  06E0    00 09 47 0D                   DEFB 00H,09H,47H,0DH 
-  06E4    2A 1875                       LD   HL,(1875H) 
-  06E7    22 185B                       LD   (ARG1),HL 
+  06E0    00 09 47 0D                   DEFB 00H,09H,47H,0DH
+  06E4    2A 1875                       LD   HL,(1875H)   ;PC-Register --> HL
+  06E7    22 185B                       LD   (ARG1),HL    ;als ARG1 speichern und weiter mit "J"
                                 ;
                                 ;
-                                ; Funktion "J" --> Jump (TODO)
+                                ; Funktion "J" --> Jump
                                 ;
-  06EA    00 09 4A 0D                   DEFB 00H,09H,4AH,0DH 
-  06EE    3A 1815                       LD   A,(1815H) 
-  06F1    FE 40                         CP   40H 
-  06F3    28 05                         JR   Z,L06FA 
-  06F5    2A 1879                       LD   HL,(1879H) 
-  06F8    36 FF                         LD   (HL),0FFH
-  06FA    2A 1877               L06FA:  LD   HL,(1877H) 
+  06EA    00 09 4A 0D                   DEFB 00H,09H,4AH,0DH
+  06EE    3A 1815                       LD   A,(1815H)    ;nachschauen, wie die Sprungtab. f. RST38 aussieht
+  06F1    FE 40                         CP   40H          ;Test, ob "BREAK" (0240H) eingetragen ist
+  06F3    28 05                         JR   Z,JUMP1      ;ja, es wurde also kein Breakpoint gesetzt
+  06F5    2A 1879                       LD   HL,(1879H)   ;nein, lade Breakpoint-Adresse
+  06F8    36 FF                         LD   (HL),0FFH    ;setze "RST38" auf Breakpoint-Adresse
+  06FA    2A 1877               JUMP1:  LD   HL,(1877H)   ;lade SP-Adresse
 	MACRO-80 3.44	09-Dec-81	PAGE	1-27
 
 
-  06FD    06 0A                         LD   B,0AH 
-  06FF    2B                            DEFB 2BH          ;ZELDIS: DEC  L 
-  0700    7E                    L0700:  LD   A,(HL) 
-  0701    2F                            CPL 
+  06FD    06 0A                         LD   B,10         ;Teste fuer den Stackpointer 10 Bytes abwC$rts, 
+  06FF    2B                            DEC  HL           ;ob er im RAM oder auf dem EPROM unterwegs ist...
+  0700    7E                    JUMP2:  LD   A,(HL) 
+  0701    2F                            CPL               ;Bitweises Negieren von A
   0702    77                            LD   (HL),A 
   0703    BE                            CP   (HL) 
-  0704    20 08                         JR   NZ,L070E 
-  0706    2F                            CPL 
+  0704    20 08                         JR   NZ,JUMP3     ;das ist 'ne EPROM-Zelle --> SP = 2000H setzen!
+  0706    2F                            CPL               ;alles wieder zurueckdrehen
   0707    77                            LD   (HL),A 
-  0708    10 F6                         DJNZ L0700 
-  070A    2A 1877                       LD   HL,(1877H) 
-  070D    DD                            DEFB 0DDH         ;LD IX,2000H (+ nxt. Befehl ueberspringen !!!)
-  070E    21 2000               L070E:  LD   HL,2000H
-  0711    F9                            LD   SP,HL 
+  0708    10 F6                         DJNZ JUMP2 
+  070A    2A 1877                       LD   HL,(1877H)   ;alles RAM-Speicher --> SP = (1877H)
+  070D    DD                            DEFB 0DDH         ;LD IX,2000H (+ nxt. Befehl ueberspringen, genial!)
+  070E    21 2000               JUMP3:  LD   HL,2000H
+  0711    F9                            LD   SP,HL        ;SP setzen
   0712    2A 185B                       LD   HL,(ARG1) 
-  0715    22 1875                       LD   (1875H),HL 
-  0718    E5                            PUSH HL 
+  0715    22 1875                       LD   (1875H),HL   ;HL-->PC
+  0718    E5                            PUSH HL           ;Startadresse in den Stack
   0719    C3 01BC                       JP   RSACPU       ;UP, CPU-Register einraeumen von RSA
                                 ;
                                 ;
@@ -1711,7 +1711,7 @@
   0721    FE 3A                         CP   3AH 
   0723    28 06                         JR   Z,L072B 
   0725    2A 185B                       LD   HL,(ARG1) 
-  0728    22 1875               L0728:  LD   (1875H),HL 
+  0728    22 1875               EINZ1:  LD   (1875H),HL 
   072B    ED 7B 1877            L072B:  LD   SP,(1877H) 
   072F    2A 1875                       LD   HL,(1875H) 
   0732    E5                            PUSH HL 
@@ -1727,17 +1727,17 @@
   0742    C9                            RET 
                                 ;
                                 ;
-                                ; ??? (TODO)
+                                ; Routine fuer Breakpoint
                                 ;
-  0743    CD 01A5                       CALL CPURSA        ;UP, CPU-Register ausraeumen nach RSA 
-  0746    2A 0233                       LD   HL,(0233H) 
-  0749    22 1815                       LD   (1815H),HL 
-  074C    E1                            POP  HL 
+  0743    CD 01A5               RUNBP:  CALL CPURSA       ;UP, CPU-Register ausraeumen nach RSA 
+  0746    2A 0233                       LD   HL,(0233H)   ;orig. Einsprungpunkt fuer RST38
+  0749    22 1815                       LD   (1815H),HL   ;in den Sprungverteiler zurueckschreiben
+  074C    E1                            POP  HL           ;PC nach RST38 aus dem Stack holen
   074D    2B                            DEC  HL 
-  074E    3A 187B                       LD   A,(187BH) 
-  0751    77                            LD   (HL),A 
-  0752    ED 73 1877                    LD   (1877H),SP 
-  0756    18 D0                         JR   L0728 
+  074E    3A 187B                       LD   A,(187BH)    ;1. Byte der BP-Sequenz 
+  0751    77                            LD   (HL),A       ;urspr. 1. Byte zurueckschreiben 
+  0752    ED 73 1877                    LD   (1877H),SP   ;SP sichern
+  0756    18 D0                         JR   EINZ1 
                                 ;
   0758                                  DEFS 3,0FFH       ;Platzhalter 3 Byte
                                 ;
@@ -1753,7 +1753,7 @@
   0766    ED 53 1875                    LD   (1875H),DE 
   076A    31 1856                       LD   SP,1856H     ;Stack 
   076D    DF                            RST  18H 
-  076E    06 A0                         DEFB 06H,0A0H 
+  076E    06 A0                         DEFB 06H,20H+80H  ;Kursor an Zeilenanfang + 1 Leerzeichen
   0770    CD 019A                       CALL OUTHL 
   0773    06 05                         LD   B,05H 
   0775    DF                    L0775:  RST  18H 
@@ -3540,46 +3540,45 @@ Symbols:
 185B 	ARG1            185D 	ARG2            185F 	ARG3            
 04CA 	ARGLD           0240 	BREAK           069C 	COMP1           
 06BF 	COMP2           01A5 	CPURSA          035D 	DEL             
-00A2 	ENDE8           0268 	ERROR           0033 	FKT33           
-002B 	FKT33A          0300 	FKT33B          025B 	GETCO           
-0172 	INHEX           0AA8 	INIRSA          000B 	INIT1           
-001B 	INIT2           003B 	INIT3           0044 	INIT4           
-004D 	INIT5           0069 	INIT6           006E 	INIT7           
-012F 	INLIN1          013A 	INLIN2          0128 	INLINE          
-04E9 	JPLDIR          006B 	JUMPX           0000 	L0000           
-0008 	L0008           0010 	L0010           0018 	L0018           
-0020 	L0020           0028 	L0028           0030 	L0030           
-00B3 	L00B3           00BD 	L00BD           00C1 	L00C1           
-00C3 	L00C3           00CA 	L00CA           018C 	L018C           
-0197 	L0197           01D1 	L01D1           01DB 	L01DB           
-01DE 	L01DE           01E7 	L01E7           021F 	L021F           
-0272 	L0272           0275 	L0275           0288 	L0288           
-0290 	L0290           02A0 	L02A0           02BB 	L02BB           
-02BD 	L02BD           02C3 	L02C3           02C5 	L02C5           
-0318 	L0318           031B 	L031B           0327 	L0327           
-0328 	L0328           032B 	L032B           032E 	L032E           
-0333 	L0333           0354 	L0354           0355 	L0355           
-0365 	L0365           036B 	L036B           0375 	L0375           
-0377 	L0377           037F 	L037F           0381 	L0381           
-0387 	L0387           038C 	L038C           038F 	L038F           
-0392 	L0392           0395 	L0395           039A 	L039A           
-03A0 	L03A0           03A8 	L03A8           03AB 	L03AB           
-03B3 	L03B3           03B8 	L03B8           03C0 	L03C0           
-03C7 	L03C7           03DC 	L03DC           03E3 	L03E3           
-03F6 	L03F6           0404 	L0404           0410 	L0410           
-0441 	L0441           0443 	L0443           044E 	L044E           
-045E 	L045E           0471 	L0471           047A 	L047A           
-0487 	L0487           0492 	L0492           0494 	L0494           
-0496 	L0496           04A4 	L04A4           04A8 	L04A8           
-04AD 	L04AD           04B5 	L04B5           051D 	L051D           
-0525 	L0525           052F 	L052F           0552 	L0552           
-0565 	L0565           0579 	L0579           057F 	L057F           
-0585 	L0585           05CE 	L05CE           05E3 	L05E3           
-05F3 	L05F3           05F9 	L05F9           0603 	L0603           
-063D 	L063D           064C 	L064C           0659 	L0659           
-0665 	L0665           0672 	L0672           0673 	L0673           
-067E 	L067E           06CE 	L06CE           06FA 	L06FA           
-0700 	L0700           070E 	L070E           0728 	L0728           
+0728 	EINZ1           00A2 	ENDE8           0268 	ERROR           
+0033 	FKT33           002B 	FKT33A          0300 	FKT33B          
+025B 	GETCO           0172 	INHEX           0AA8 	INIRSA          
+000B 	INIT1           001B 	INIT2           003B 	INIT3           
+0044 	INIT4           004D 	INIT5           0069 	INIT6           
+006E 	INIT7           012F 	INLIN1          013A 	INLIN2          
+0128 	INLINE          04E9 	JPLDIR          06FA 	JUMP1           
+0700 	JUMP2           070E 	JUMP3           006B 	JUMPX           
+0000 	L0000           0008 	L0008           0010 	L0010           
+0018 	L0018           0020 	L0020           0028 	L0028           
+0030 	L0030           00B3 	L00B3           00BD 	L00BD           
+00C1 	L00C1           00C3 	L00C3           00CA 	L00CA           
+01DB 	L01DB           01DE 	L01DE           01E7 	L01E7           
+021F 	L021F           0272 	L0272           0275 	L0275           
+0288 	L0288           0290 	L0290           02A0 	L02A0           
+02BB 	L02BB           02BD 	L02BD           02C3 	L02C3           
+02C5 	L02C5           0318 	L0318           031B 	L031B           
+0327 	L0327           0328 	L0328           032B 	L032B           
+032E 	L032E           0333 	L0333           0354 	L0354           
+0355 	L0355           0365 	L0365           036B 	L036B           
+0375 	L0375           0377 	L0377           037F 	L037F           
+0381 	L0381           0387 	L0387           038C 	L038C           
+038F 	L038F           0392 	L0392           0395 	L0395           
+039A 	L039A           03A0 	L03A0           03A8 	L03A8           
+03AB 	L03AB           03B3 	L03B3           03B8 	L03B8           
+03C0 	L03C0           03C7 	L03C7           03DC 	L03DC           
+03E3 	L03E3           03F6 	L03F6           0404 	L0404           
+0410 	L0410           0441 	L0441           0443 	L0443           
+044E 	L044E           045E 	L045E           0471 	L0471           
+047A 	L047A           0487 	L0487           0492 	L0492           
+0494 	L0494           0496 	L0496           04A4 	L04A4           
+04A8 	L04A8           04AD 	L04AD           04B5 	L04B5           
+051D 	L051D           0525 	L0525           052F 	L052F           
+0552 	L0552           0565 	L0565           0579 	L0579           
+057F 	L057F           0585 	L0585           05CE 	L05CE           
+05E3 	L05E3           05F3 	L05F3           05F9 	L05F9           
+0603 	L0603           063D 	L063D           064C 	L064C           
+0659 	L0659           0665 	L0665           0672 	L0672           
+0673 	L0673           067E 	L067E           06CE 	L06CE           
 072B 	L072B           0775 	L0775           077E 	L077E           
 0785 	L0785           078D 	L078D           0797 	L0797           
 07C2 	L07C2           07CF 	L07CF           07D0 	L07D0           
@@ -3593,10 +3592,10 @@ Symbols:
 08DE 	L08DE           08E3 	L08E3           08EB 	L08EB           
 08F3 	L08F3           08F9 	L08F9           0903 	L0903           
 090B 	L090B           0912 	L0912           091B 	L091B           
+0924 	L0924           0929 	L0929           092C 	L092C           
 	MACRO-80 3.44	09-Dec-81	PAGE	S-1
 
 
-0924 	L0924           0929 	L0929           092C 	L092C           
 0932 	L0932           0938 	L0938           0957 	L0957           
 096D 	L096D           097D 	L097D           098E 	L098E           
 0999 	L0999           09A2 	L09A2           09AD 	L09AD           
@@ -3639,25 +3638,24 @@ Symbols:
 011D 	MS30            0121 	MS30A           00D6 	NOTAST          
 010C 	NOV24           0183 	OUTHEX          019A 	OUTHL           
 0589 	OUTHL1          058C 	OUTHL2          0ACA 	OUTHL3          
-0000 	P00             0004 	P04             0005 	P05             
-0008 	P08             000E 	P0E             000F 	P0F             
-0014 	P14             0016 	P16             009B 	PIEP            
-0116 	PROGX           01BC 	RSACPU          00A5 	RST08           
+018C 	OUTHX1          0197 	OUTHX2          0000 	P00             
+0004 	P04             0005 	P05             0008 	P08             
+000E 	P0E             000F 	P0F             0014 	P14             
+0016 	P16             009B 	PIEP            0116 	PROGX           
+01D1 	RSACP1          01BC 	RSACPU          00A5 	RST08           
 0013 	RST10           0EF2 	RST10A          0EFB 	RST10B          
 0F0B 	RST10C          0F1F 	RST10D          0A8D 	RST18           
-0A8F 	RST18A          0220 	SPTAB           0AD8 	TABIO           
-0D4D 	TASTE           0156 	UPINH1          0168 	UPINH2          
-0146 	UPINHX          0ACE 	UPRAMT          0297 	UPTAST          
-0287 	UPTON           01D6 	V24IN           00D9 	V24IN1          
-00E1 	V24IN2          00E8 	V24IN3          00EF 	V24IN4          
-00F6 	V24IN5          00F9 	V24IN6          0E0C 	V24OU1          
-0E12 	V24OU2          0E1A 	V24OU3          0E22 	V24OU4          
-0E28 	V24OU5          0E2F 	V24OU6          0E30 	V24OU7          
-0E37 	V24OU8          0DF9 	V24OUT          02F0 	ZGUMS           
+0A8F 	RST18A          0743 	RUNBP           0220 	SPTAB           
+0AD8 	TABIO           0D4D 	TASTE           0156 	UPINH1          
+0168 	UPINH2          0146 	UPINHX          0ACE 	UPRAMT          
+0297 	UPTAST          0287 	UPTON           01D6 	V24IN           
+00D9 	V24IN1          00E1 	V24IN2          00E8 	V24IN3          
+00EF 	V24IN4          00F6 	V24IN5          00F9 	V24IN6          
+0E0C 	V24OU1          0E12 	V24OU2          0E1A 	V24OU3          
+0E22 	V24OU4          0E28 	V24OU5          0E2F 	V24OU6          
+0E30 	V24OU7          0E37 	V24OU8          0DF9 	V24OUT          
+02F0 	ZGUMS           
 
 
 
 No Fatal error(s)
-
-
-    
