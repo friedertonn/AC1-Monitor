@@ -1,6 +1,6 @@
 ; ************************************************************
 ; *                                                          *
-; *  MONITOR 10/88 fuer den AC 1     Version vom 15.02.2022  *
+; *  MONITOR 10/88 fuer den AC 1     Version vom 31.05.2022  *
 ; *                                                          *
 ; ************************************************************
 ;
@@ -65,6 +65,7 @@ MONI88  EQU  1       ;Monitor 10/88 - Originalversion 1988
         .CREF
         .Z80
 ;
+COLOR   EQU  181FH        ;Merkzelle fuer das Farbbyte im RAM
 ARG1    EQU  185BH
 ARG2    EQU  185DH
 ARG3    EQU  185FH
@@ -75,8 +76,9 @@ P05     EQU  05H
 P08     EQU  08H          ;PIO 2
 P0E     EQU  0EH          ;ROM-Bank: EPROM-Einblendung
 P0F     EQU  0FH          ;PIO2-Karte: EPROM-Einblendung
-P14     EQU  14H          ;Modul-1: Konfigurationsregister
+P14     EQU  14H          ;Modul 1: Konfigurationsregister
 P16     EQU  16H          ;RAM 0000H bis 0FFFH einblenden
+PF0     EQU  0F0H         ;COLOR-BWS
 ;
         .PHASE 0000H
 ;
@@ -235,7 +237,7 @@ INIT5:  LD   (HL),0FFH    ;HL=1800H
 INIT6:  CP   58H          ;Taste "X" gedrueckt?
 JUMPX:  JP   Z,PROGX      ;Sprung zum Programmpaket X
 INIT7:  XOR  A 
-        OUT  (P14),A      ;Port 14 zuruecksetzen
+        OUT  (P14),A      ;Modul 1: zuruecksetzen
         RST  18H 
         DEFB 0CH,0DH,0FH,0FH 
         IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
@@ -352,7 +354,7 @@ NOV24:  RRCA              ;Rotiere A-Register rechts
 ;
         IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
 PROGX:  LD   A,01H 
-        OUT  (P14),A 
+        OUT  (P14),A      ;Modul 1: EPROM mit Programmpaket X
         JP   0E000H       ;Sprung zum Programmpaket X
         ENDIF
         IFDEF MONI88A     ;Monitor 10/88 - Originalversion mit Anpassungen
@@ -361,7 +363,7 @@ PROGX:  JP   PROGX1       ;Sprung zur AC1 ROM-Bank
         ENDIF
         IFDEF MONI11      ;Monitor 10/88 - BWS-CPLD-Version 2011
 PROGX:  LD   A,01H 
-        OUT  (P14),A 
+        OUT  (P14),A      ;Modul 1: EPROM mit Programmpaket X
         JP   0E000H       ;Sprung zum Programmpaket X
         ENDIF
         IFDEF MONI11A     ;Monitor 10/88 - BWS-CPLD-Version mit Anpassungen
@@ -1102,7 +1104,7 @@ L0443:  DEC  HL
         DJNZ L0443 
         LD   (ARG2),HL 
         RST  18H 
-        DEFB 06H,03H+80H  ;Kursor an Zeilenanfang + Zeile ab Kursor löschen
+        DEFB 06H,03H+80H  ;Kursor an Zeilenanfang + Zeile ab Kursor loeschen
         LD   B,0CH 
 L044E:  RST  18H 
         DEFB 09H+80H 
@@ -1586,7 +1588,7 @@ L06CE:  LD   (1879H),HL   ;BP-Adresse merken
         LD   HL,(1879H)   ;nein, lade Breakpoint-Adresse
         LD   (HL),0FFH    ;setze "RST38" auf Breakpoint-Adresse
 JUMP1:  LD   HL,(1877H)   ;lade SP-Adresse
-        LD   B,10         ;Teste fuer den Stackpointer 10 Bytes abwärts, 
+        LD   B,10         ;Teste fuer den Stackpointer 10 Bytes abwaerts, 
         DEC  HL           ;ob er im RAM oder auf dem EPROM unterwegs ist...
 JUMP2:  LD   A,(HL) 
         CPL               ;Bitweises Negieren von A
@@ -3078,7 +3080,7 @@ L0FA1:  LD   A,(DE)
 ;
         DEFB 00H,09H,72H,0DH 
         LD   A,02H
-        OUT  (P14),A
+        OUT  (P14),A      ;Modul 1: EPROM mit Basic
         JP   5FD5H        ;Sprung ins Basic-Programm
 ;
 ;
@@ -3092,7 +3094,7 @@ L0FA1:  LD   A,(DE)
 ;
         DEFB 09H,62H,0DH  ;die 00H wird vom letzten Befehl genutzt
         LD   A,02H
-        OUT  (P14),A
+        OUT  (P14),A      ;Modul 1: EPROM mit Basic
         JP   5FCCH        ;Sprung ins Basic-Programm
 ;
         ENDIF             ;Monitor 10/88 - Originalversion 1988
@@ -3183,41 +3185,41 @@ PROGX2: LD   A,D          ;HWT EPROM
 ;
         DEFB 00H,09H,21H,0DH
         LD   A,(ARG1) 
-        OR   A
+        OR   A            ;wenn ARG1=0 ist --> Vorgabewert nehmen
         JR   NZ,FINIT1 
 ;
 ;
 ; Farb-Initialisierung des CPLD
 ;
-FINIT:  LD   A,02H        ;Farbbyte: Init.-Wert nach Reset = 02H
+FINIT:  LD   A,02H        ;Farbbyte: nach Reset = 02H
 FINIT1: PUSH AF 
-        XOR  A 
-        LD   (181FH),A 
+        XOR  A            ;Wert fuer Monochrom-BWS
+        LD   (COLOR),A    ;Merkzelle fuer Farbbyte im RAM schreiben
         POP  AF 
-        LD   C,0F0H
-        IN   B,(C) 
-        INC  B 
-        RET  Z 
+        LD   C,PF0        ;I/O-Adresse COLOR-BWS
+        IN   B,(C)        ;Konfigbyte COLOR-BWS lesen
+        INC  B            ;fuer COLOR-BWS ist B!=0
+        RET  Z            ;kein COLOR-BWS vorhanden --> Ende
         DEC  B 
         LD   D,B 
-        SET  2,D 
+        SET  2,D          ;Konfigbyte COLOR-BWS: Farb-RAM aktiv
         LD   HL,1000H 
         LD   E,(HL) 
-        OUT  (C),D 
-        LD   (HL),A 
-        CP   (HL) 
-        OUT  (C),B 
-        LD   (HL),E 
-        RET  NZ 
-        OUT  (C),D 
+        OUT  (C),D        ;COLOR-BWS auf Farb-RAM umschalten
+        LD   (HL),A       ;Farbe auf 1000h setzen
+        CP   (HL)         ;ist ein Farb-RAM eingebaut?
+        OUT  (C),B        ;Konfigbyte COLOR-BWS: Text-RAM aktiv
+        LD   (HL),E       ;Zeichen auf 1000h zurueckschreiben
+        RET  NZ           ;Farbe hat nicht geklappt --> Ende
+        OUT  (C),D        ;nochmal COLOR-BWS auf Farb-RAM umschalten
         PUSH BC 
         LD   DE,1001H 
         LD   BC,07FFH 
-        LDIR 
-        LD   A,(HL) 
+        LDIR              ;Farbe in den restlichen BWS-RAM schreiben
+        LD   A,(HL)       ;Farbe aus 17FEh ruecklesen
         POP  BC 
-        OUT  (C),B 
-        LD   (181FH),A 
+        OUT  (C),B        ;Konfigbyte COLOR-BWS: Text-RAM aktiv
+        LD   (COLOR),A    ;Merkzelle fuer Farbbyte im RAM schreiben
         RET 
 ;
 ;
@@ -3233,7 +3235,7 @@ FINIT1: PUSH AF
 ;
         DEFB 00H,09H,72H,0DH 
         LD   A,02H
-        OUT  (P14),A
+        OUT  (P14),A      ;Modul 1: EPROM mit Basic
         JP   5FD5H        ;Sprung ins Basic-Programm
 ;
 ;
@@ -3247,7 +3249,7 @@ FINIT1: PUSH AF
 ;
         DEFB 09H,62H,0DH  ;die 00H wird vom letzten Befehl genutzt
         LD   A,02H
-        OUT  (P14),A
+        OUT  (P14),A      ;Modul 1: EPROM mit Basic
         JP   5FCCH        ;Sprung ins Basic-Programm
 ;
         ENDIF             ;Monitor 10/88 - BWS-CPLD-Version 2011
@@ -3257,41 +3259,41 @@ FINIT1: PUSH AF
 ;
         DEFB 00H,09H,21H,0DH
         LD   A,(ARG1) 
-        OR   A
+        OR   A            ;wenn ARG1=0 ist --> Vorgabewert nehmen
         JR   NZ,FINIT1 
 ;
 ;
 ; Farb-Initialisierung des CPLD
 ;
-FINIT:  LD   A,4FH        ;Farbbyte: Init.-Wert nach Reset = 4FH
+FINIT:  LD   A,4FH        ;Farbbyte: nach Reset = 4FH
 FINIT1: PUSH AF 
-        XOR  A 
-        LD   (181FH),A 
+        XOR  A            ;Wert fuer Monochrom-BWS
+        LD   (COLOR),A    ;Merkzelle fuer Farbbyte im RAM schreiben
         POP  AF 
-        LD   C,0F0H
-        IN   B,(C) 
-        INC  B 
-        RET  Z 
+        LD   C,PF0        ;I/O-Adresse COLOR-BWS
+        IN   B,(C)        ;Konfigbyte COLOR-BWS lesen
+        INC  B            ;fuer COLOR-BWS ist B!=0
+        RET  Z            ;kein COLOR-BWS vorhanden --> Ende
         DEC  B 
         LD   D,B 
-        SET  2,D 
+        SET  2,D          ;Konfigbyte COLOR-BWS: Farb-RAM aktiv
         LD   HL,1000H 
         LD   E,(HL) 
-        OUT  (C),D 
-        LD   (HL),A 
-        CP   (HL) 
-        OUT  (C),B 
-        LD   (HL),E 
-        RET  NZ 
-        OUT  (C),D 
+        OUT  (C),D        ;COLOR-BWS auf Farb-RAM umschalten
+        LD   (HL),A       ;Farbe auf 1000h setzen
+        CP   (HL)         ;ist ein Farb-RAM eingebaut?
+        OUT  (C),B        ;Konfigbyte COLOR-BWS: Text-RAM aktiv
+        LD   (HL),E       ;Zeichen auf 1000h zurueckschreiben
+        RET  NZ           ;Farbe hat nicht geklappt --> Ende
+        OUT  (C),D        ;nochmal COLOR-BWS auf Farb-RAM umschalten
         PUSH BC 
         LD   DE,1001H 
         LD   BC,07FFH 
-        LDIR 
-        LD   A,(HL) 
+        LDIR              ;Farbe in den restlichen BWS-RAM schreiben
+        LD   A,(HL)       ;Farbe aus 17FEh ruecklesen
         POP  BC 
-        OUT  (C),B 
-        LD   (181FH),A 
+        OUT  (C),B        ;Konfigbyte COLOR-BWS: Text-RAM aktiv
+        LD   (COLOR),A    ;Merkzelle fuer Farbbyte im RAM schreiben
         RET 
 ;
 ;
@@ -3336,3 +3338,4 @@ PROGX4: LD   A,0F6H
         .DEPHASE
         END
 ;
+

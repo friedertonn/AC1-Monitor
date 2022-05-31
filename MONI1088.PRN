@@ -3,7 +3,7 @@
 
                                 ; ************************************************************
                                 ; *                                                          *
-                                ; *  MONITOR 10/88 fuer den AC 1     Version vom 15.02.2022  *
+                                ; *  MONITOR 10/88 fuer den AC 1     Version vom 31.05.2022  *
                                 ; *                                                          *
                                 ; ************************************************************
                                 ;
@@ -72,6 +72,7 @@
                                         .CREF
                                         .Z80
                                 ;
+  181F                          COLOR   EQU  181FH        ;Merkzelle fuer das Farbbyte im RAM
   185B                          ARG1    EQU  185BH
   185D                          ARG2    EQU  185DH
   185F                          ARG3    EQU  185FH
@@ -82,8 +83,9 @@
   0008                          P08     EQU  08H          ;PIO 2
   000E                          P0E     EQU  0EH          ;ROM-Bank: EPROM-Einblendung
   000F                          P0F     EQU  0FH          ;PIO2-Karte: EPROM-Einblendung
-  0014                          P14     EQU  14H          ;Modul-1: Konfigurationsregister
+  0014                          P14     EQU  14H          ;Modul 1: Konfigurationsregister
   0016                          P16     EQU  16H          ;RAM 0000H bis 0FFFH einblenden
+  00F0                          PF0     EQU  0F0H         ;COLOR-BWS
                                 ;
                                         .PHASE 0000H
                                 ;
@@ -104,11 +106,11 @@
   000B    CD 011D               INIT1:  CALL MS30         ;Zeitschleife 30ms
   000E    18 0B                         JR   INIT2 
                                 ;
-                                ;
-                                ; RST 10H - Ausgabekanal, normal Bildschirm
 	MACRO-80 3.44	09-Dec-81	PAGE	1-2
 
 
+                                ;
+                                ; RST 10H - Ausgabekanal, normal Bildschirm
                                 ; -----------------------------------------
                                 ;
   0010    C3 1805               L0010:  JP   1805H        ;Sprungtabelle 1805H
@@ -167,11 +169,11 @@
                                 ;
                                 ;
                                 ; RST 28H - nicht verwendet
-                                ; -------------------------
-                                ;
 	MACRO-80 3.44	09-Dec-81	PAGE	1-3
 
 
+                                ; -------------------------
+                                ;
   0028    C3 180E               L0028:  JP   180EH        ;Sprungtabelle 180EH
                                 ;
                                 ;
@@ -230,11 +232,11 @@
                                         ENDIF
                                         IFDEF MONI11      ;Monitor 10/88 - BWS-CPLD-Version 2011
                                         CALL FARBIN       ;CALL Farb-Initialisierung
-                                        ENDIF
-                                        IFDEF MONI11A     ;Monitor 10/88 - BWS-CPLD-Version mit Anpassungen
 	MACRO-80 3.44	09-Dec-81	PAGE	1-4
 
 
+                                        ENDIF
+                                        IFDEF MONI11A     ;Monitor 10/88 - BWS-CPLD-Version mit Anpassungen
                                         CALL FARBIN       ;CALL Farb-Initialisierung
                                         ENDIF
   0060    20 07                         JR   NZ,INIT6     ;Taste gedrueckt (nur Originalversion 1988)
@@ -251,7 +253,7 @@
   0069    FE 58                 INIT6:  CP   58H          ;Taste "X" gedrueckt?
   006B    CA 0116               JUMPX:  JP   Z,PROGX      ;Sprung zum Programmpaket X
   006E    AF                    INIT7:  XOR  A 
-  006F    D3 14                         OUT  (P14),A      ;Port 14 zuruecksetzen
+  006F    D3 14                         OUT  (P14),A      ;Modul 1: zuruecksetzen
   0071    DF                            RST  18H 
   0072    0C 0D 0F 0F                   DEFB 0CH,0DH,0FH,0FH 
                                         IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
@@ -293,11 +295,11 @@
                                 ; Einsprungpunkt fuer RST 08H   (Eingabekanal, normal Tastatur)
                                 ; ---------------------------
                                 ;
-  00A5    E5                    RST08:  PUSH HL 
-  00A6    C5                            PUSH BC 
 	MACRO-80 3.44	09-Dec-81	PAGE	1-5
 
 
+  00A5    E5                    RST08:  PUSH HL 
+  00A6    C5                            PUSH BC 
   00A7    3A 1821                       LD   A,(1821H)    ;LD A,I/O-Byte 
   00AA    0F                            RRCA              ;Rotiere A-Register rechts
   00AB    30 29                         JR   NC,NOTAST    ;anderes Eingabegeraet (keine Tastatur)
@@ -356,11 +358,11 @@
   00FF    20 F8                         JR   NZ,V24IN6    ;warten auf fallende Flanke
   0101    1F                            RRA               ;empfangenes Bit 0 --> CY
   0102    10 F2                         DJNZ V24IN5 
-  0104    3E 0A                         LD   A,0AH
-  0106    D3 08                         OUT  (P08),A      ;Steuerleitung auf High setzen
 	MACRO-80 3.44	09-Dec-81	PAGE	1-6
 
 
+  0104    3E 0A                         LD   A,0AH
+  0106    D3 08                         OUT  (P08),A      ;Steuerleitung auf High setzen
   0108    79                            LD   A,C          ;empfangenes Zeichen --> A
   0109    18 97                         JR   ENDE8        ;Ende von RST08
                                 ;
@@ -380,7 +382,7 @@
                                 ;
                                         IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
   0116    3E 01                 PROGX:  LD   A,01H 
-  0118    D3 14                         OUT  (P14),A 
+  0118    D3 14                         OUT  (P14),A      ;Modul 1: EPROM mit Programmpaket X
   011A    C3 E000                       JP   0E000H       ;Sprung zum Programmpaket X
                                         ENDIF
                                         IFDEF MONI88A     ;Monitor 10/88 - Originalversion mit Anpassungen
@@ -389,7 +391,7 @@
                                         ENDIF
                                         IFDEF MONI11      ;Monitor 10/88 - BWS-CPLD-Version 2011
                                 PROGX:  LD   A,01H 
-                                        OUT  (P14),A 
+                                        OUT  (P14),A      ;Modul 1: EPROM mit Programmpaket X
                                         JP   0E000H       ;Sprung zum Programmpaket X
                                         ENDIF
                                         IFDEF MONI11A     ;Monitor 10/88 - BWS-CPLD-Version mit Anpassungen
@@ -419,11 +421,11 @@
                                 ; 181A und 181B ab
                                 ; ---------------------------------------------------------------
                                 ;
-  0128    F5                    INLINE: PUSH AF 
-  0129    E5                            PUSH HL 
 	MACRO-80 3.44	09-Dec-81	PAGE	1-7
 
 
+  0128    F5                    INLINE: PUSH AF 
+  0129    E5                            PUSH HL 
   012A    DF                            RST  18H 
   012B    20 23                         DEFM " #"         ;Prompt ausgeben
   012D    A0                            DEFB 20H+80H 
@@ -482,11 +484,11 @@
                                 ;
                                 ;
                                 ; UP INHEX
-                                ; --------
-                                ;
 	MACRO-80 3.44	09-Dec-81	PAGE	1-8
 
 
+                                ; --------
+                                ;
                                 ;Wandelt eine maximal vierstellige in ASCII-Zeichen angegebene
                                 ;Zahl ab (DE) abwaerts in deren hexadezimalen Wert um, der dann
                                 ;in HL steht. DE wird entsprechend dekrementiert.
@@ -545,11 +547,11 @@
                                 ;
                                 ; UP, CPU-Register ausraeumen nach RSA
                                 ; ------------------------------------
-                                ;
-  01A5    ED 73 1858            CPURSA: LD   (1858H),SP   ;Stack merken
 	MACRO-80 3.44	09-Dec-81	PAGE	1-9
 
 
+                                ;
+  01A5    ED 73 1858            CPURSA: LD   (1858H),SP   ;Stack merken
   01A9    31 1875                       LD   SP,1875H     ;Stack auf das Ende der RSA setzen
   01AC    FD E5                         PUSH IY 
   01AE    DD E5                         PUSH IX 
@@ -608,11 +610,11 @@
   01E7    AF                    L01E7:  XOR  A 
   01E8    ED B1                         CPIR 
   01EA    E2 01DB                       JP   PO,L01DB 
-  01ED    3E 09                         LD   A,09H 
-  01EF    BE                            CP   (HL) 
 	MACRO-80 3.44	09-Dec-81	PAGE	1-10
 
 
+  01ED    3E 09                         LD   A,09H 
+  01EF    BE                            CP   (HL) 
   01F0    20 F5                         JR   NZ,L01E7 
   01F2    23                            INC  HL 
   01F3    ED 5B 181A                    LD   DE,(181AH) 
@@ -671,11 +673,11 @@
                                         DEFB 00H          ;Warmstartcode
                                         DEFB 02H          ;Kommando-Code V.24 (9600 Baud)
                                         ENDIF
-  023F    11                            DEFB 11H          ;Ein/Ausgabebyte (Adresse 1821H)
-                                ;
 	MACRO-80 3.44	09-Dec-81	PAGE	1-11
 
 
+  023F    11                            DEFB 11H          ;Ein/Ausgabebyte (Adresse 1821H)
+                                ;
                                 ;
                                 ; Einsprungpunkt fuer RST 38H und NMI
                                 ; -----------------------------------
@@ -734,11 +736,11 @@
                                 ; UP 'Ton', Reg, B = Tonlaenge, C = Tonhoehe
                                 ; ----------------------------------------
                                 ;
-  0287    F5                    UPTON:  PUSH AF 
-  0288    DB 05                 L0288:  IN   A,(P05) 
 	MACRO-80 3.44	09-Dec-81	PAGE	1-12
 
 
+  0287    F5                    UPTON:  PUSH AF 
+  0288    DB 05                 L0288:  IN   A,(P05) 
   028A    1F                            RRA 
   028B    3F                            CCF 
   028C    17                            RLA 
@@ -797,11 +799,11 @@
                                 ;
                                 ;
                                 ; Funktion "W" --> Port ausgeben
-                                ;
-  02CF    00 09 57 0D                   DEFB 00H,09H,57H,0DH 
 	MACRO-80 3.44	09-Dec-81	PAGE	1-13
 
 
+                                ;
+  02CF    00 09 57 0D                   DEFB 00H,09H,57H,0DH 
   02D3    CD 04CA                       CALL ARGLD        ;ARG1-->HL ARG2-->DE ARG3-->BC 
   02D6    44                            LD   B,H          ;HL-->BC
   02D7    4D                            LD   C,L
@@ -860,11 +862,11 @@
                                 FKT0:   OUT  (P0F),A 
                                         RET 
                                 ;
-                                        ENDIF
-                                ;
 	MACRO-80 3.44	09-Dec-81	PAGE	1-14
 
 
+                                        ENDIF
+                                ;
                                 ;
                                 ; Zeichensatz SCCH <--> ACC umschalten
                                 ;
@@ -923,11 +925,11 @@
   0315    C5                            PUSH BC 
   0316    EB                            EX   DE,HL 
   0317    C9                            RET 
-                                ;
-  0318    35                    L0318:  DEC  (HL) 
 	MACRO-80 3.44	09-Dec-81	PAGE	1-15
 
 
+                                ;
+  0318    35                    L0318:  DEC  (HL) 
   0319    20 18                         JR   NZ,L0333 
   031B    36 01                 L031B:  LD   (HL),01H 
   031D    EB                            EX   DE,HL 
@@ -986,11 +988,11 @@
   035D    23                    DEL:    INC  HL 
   035E    CD 03DC                       CALL L03DC 
   0361    36 20                         LD   (HL),20H 
-  0363    18 C6                         JR   L032B 
-                                ;Ansprung unklar
 	MACRO-80 3.44	09-Dec-81	PAGE	1-16
 
 
+  0363    18 C6                         JR   L032B 
+                                ;Ansprung unklar
   0365    21 17FF               L0365:  LD   HL,17FFH 
   0368    22 1800                       LD   (1800H),HL 
   036B    36 20                 L036B:  LD   (HL),20H 
@@ -1049,11 +1051,11 @@
   03B6    18 C7                         JR   L037F 
                                 ;Ansprung unklar
   03B8    7D                    L03B8:  LD   A,L 
-  03B9    E6 C0                         AND  0C0H
-  03BB    5F                            LD   E,A 
 	MACRO-80 3.44	09-Dec-81	PAGE	1-17
 
 
+  03B9    E6 C0                         AND  0C0H
+  03BB    5F                            LD   E,A 
   03BC    7D                            LD   A,L 
   03BD    6B                            LD   L,E 
   03BE    54                            LD   D,H 
@@ -1112,11 +1114,11 @@
   0404    0D                    L0404:  DEC  C            ;= 0DH --> Der Sprung geht in die Kennung hinein
   0405    CD 04CA                       CALL ARGLD        ;ARG1-->HL ARG2-->DE ARG3-->BC 
   0408    EB                            EX   DE,HL 
-  0409    23                            INC  HL 
-  040A    AF                            XOR  A 
 	MACRO-80 3.44	09-Dec-81	PAGE	1-18
 
 
+  0409    23                            INC  HL 
+  040A    AF                            XOR  A 
   040B    ED 52                         SBC  HL,DE 
   040D    01 FFFF                       LD   BC,0FFFFH
   0410    1A                    L0410:  LD   A,(DE) 
@@ -1168,18 +1170,18 @@
   0444    10 FD                         DJNZ L0443 
   0446    22 185D                       LD   (ARG2),HL 
   0449    DF                            RST  18H 
-  044A    06 83                         DEFB 06H,03H+80H  ;Kursor an Zeilenanfang + Zeile ab Kursor lC6schen
+  044A    06 83                         DEFB 06H,03H+80H  ;Kursor an Zeilenanfang + Zeile ab Kursor loeschen
   044C    06 0C                         LD   B,0CH 
   044E    DF                    L044E:  RST  18H 
   044F    89                            DEFB 09H+80H 
   0450    10 FC                         DJNZ L044E 
   0452    CD 07F1                       CALL L07F1 
   0455    ED 5B 1800                    LD   DE,(1800H) 
-  0459    DF                            RST  18H 
-  045A    3E                            DEFM ">" 
 	MACRO-80 3.44	09-Dec-81	PAGE	1-19
 
 
+  0459    DF                            RST  18H 
+  045A    3E                            DEFM ">" 
   045B    A0                            DEFB 20H+80H 
   045C    06 08                         LD   B,08H 
   045E    7E                    L045E:  LD   A,(HL) 
@@ -1238,11 +1240,11 @@
   049D    FE 3A                         CP   3AH 
   049F    38 F1                         JR   C,L0492 
   04A1    FE 41                         CP   41H 
-  04A3    C9                            RET 
-                                ;
 	MACRO-80 3.44	09-Dec-81	PAGE	1-20
 
 
+  04A3    C9                            RET 
+                                ;
   04A4    DF                    L04A4:  RST  18H 
   04A5    86                            DEFB 06H+80H 
   04A6    06 0C                         LD   B,0CH 
@@ -1301,11 +1303,11 @@
   04CA    2A 185B               ARGLD:  LD   HL,(ARG1) 
   04CD    ED 5B 185D                    LD   DE,(ARG2) 
   04D1    ED 4B 185F                    LD   BC,(ARG3) 
-  04D5    C9                            RET 
-                                ;
 	MACRO-80 3.44	09-Dec-81	PAGE	1-21
 
 
+  04D5    C9                            RET 
+                                ;
   04D6                                  DEFS 2,0FFH       ;Platzhalter 2 Byte
                                 ;
                                 ; Funktion "P" --> Pattern
@@ -1364,11 +1366,11 @@
                                 ;
   051D    2F                    L051D:  CPL 
   051E    BC                            CP   H 
-  051F    20 0E                         JR   NZ,L052F 
-  0521    CB 7D                         BIT  7,L 
 	MACRO-80 3.44	09-Dec-81	PAGE	1-22
 
 
+  051F    20 0E                         JR   NZ,L052F 
+  0521    CB 7D                         BIT  7,L 
   0523    28 0A                         JR   Z,L052F 
   0525    DF                    L0525:  RST  18H 
   0526    44 53 50 4C                   DEFM "DSPL" 
@@ -1427,11 +1429,11 @@
                                 ;
                                 ; ??? (TODO)
                                 ;
-  0579    4F                    L0579:  LD   C,A 
-  057A    21 05BE                       LD   HL,05BEH 
 	MACRO-80 3.44	09-Dec-81	PAGE	1-23
 
 
+  0579    4F                    L0579:  LD   C,A 
+  057A    21 05BE                       LD   HL,05BEH 
   057D    06 08                         LD   B,08H 
   057F    CB 01                 L057F:  RLC  C 
   0581    30 02                         JR   NC,L0585 
@@ -1490,11 +1492,11 @@
   05E7    23                            INC  HL 
   05E8    10 F9                         DJNZ L05E3 
   05EA    0E 03                         LD   C,03H 
-  05EC    11 059A                       LD   DE,059AH 
-  05EF    DD 21 1878                    LD   IX,1878H 
 	MACRO-80 3.44	09-Dec-81	PAGE	1-24
 
 
+  05EC    11 059A                       LD   DE,059AH 
+  05EF    DD 21 1878                    LD   IX,1878H 
   05F3    DF                    L05F3:  RST  18H 
   05F4    0D                            DEFB 0DH 
   05F5    20                            DEFM " " 
@@ -1553,11 +1555,11 @@
   0644    21 0592                       LD   HL,0592H 
   0647    06 04                         LD   B,04H 
   0649    11 1869                       LD   DE,1869H 
-  064C    BE                    L064C:  CP   (HL) 
-  064D    28 16                         JR   Z,L0665 
 	MACRO-80 3.44	09-Dec-81	PAGE	1-25
 
 
+  064C    BE                    L064C:  CP   (HL) 
+  064D    28 16                         JR   Z,L0665 
   064F    13                            INC  DE 
   0650    13                            INC  DE 
   0651    23                            INC  HL 
@@ -1616,11 +1618,11 @@
                                 ;
                                 ;
                                 ; Funktion "C" --> Compare
-                                ;
-  0695    00 09 43 0D                   DEFB 00H,09H,43H,0DH 
 	MACRO-80 3.44	09-Dec-81	PAGE	1-26
 
 
+                                ;
+  0695    00 09 43 0D                   DEFB 00H,09H,43H,0DH 
   0699    CD 04CA                       CALL ARGLD        ;ARG1-->HL ARG2-->DE ARG3-->BC 
   069C    1A                    COMP1:  LD   A,(DE) 
   069D    BE                            CP   (HL) 
@@ -1679,12 +1681,12 @@
   06F1    FE 40                         CP   40H          ;Test, ob "BREAK" (0240H) eingetragen ist
   06F3    28 05                         JR   Z,JUMP1      ;ja, es wurde also kein Breakpoint gesetzt
   06F5    2A 1879                       LD   HL,(1879H)   ;nein, lade Breakpoint-Adresse
-  06F8    36 FF                         LD   (HL),0FFH    ;setze "RST38" auf Breakpoint-Adresse
-  06FA    2A 1877               JUMP1:  LD   HL,(1877H)   ;lade SP-Adresse
 	MACRO-80 3.44	09-Dec-81	PAGE	1-27
 
 
-  06FD    06 0A                         LD   B,10         ;Teste fuer den Stackpointer 10 Bytes abwC$rts, 
+  06F8    36 FF                         LD   (HL),0FFH    ;setze "RST38" auf Breakpoint-Adresse
+  06FA    2A 1877               JUMP1:  LD   HL,(1877H)   ;lade SP-Adresse
+  06FD    06 0A                         LD   B,10         ;Teste fuer den Stackpointer 10 Bytes abwaerts, 
   06FF    2B                            DEC  HL           ;ob er im RAM oder auf dem EPROM unterwegs ist...
   0700    7E                    JUMP2:  LD   A,(HL) 
   0701    2F                            CPL               ;Bitweises Negieren von A
@@ -1742,11 +1744,11 @@
   0758                                  DEFS 3,0FFH       ;Platzhalter 3 Byte
                                 ;
                                 ; ??? (TODO)
-                                ;
-  075B    CD 01A5                       CALL CPURSA       ;UP, CPU-Register ausraeumen nach RSA 
 	MACRO-80 3.44	09-Dec-81	PAGE	1-28
 
 
+                                ;
+  075B    CD 01A5                       CALL CPURSA       ;UP, CPU-Register ausraeumen nach RSA 
   075E    D1                            POP  DE 
   075F    ED 73 1877                    LD   (1877H),SP 
   0763    2A 1875                       LD   HL,(1875H) 
@@ -1805,11 +1807,11 @@
   07B7    DF                            RST  18H 
   07B8    0D A0                         DEFB 0DH,0A0H 
   07BA    2A 1875                       LD   HL,(1875H) 
-  07BD    CD 019A                       CALL OUTHL 
-  07C0    06 05                         LD   B,05H 
 	MACRO-80 3.44	09-Dec-81	PAGE	1-29
 
 
+  07BD    CD 019A                       CALL OUTHL 
+  07C0    06 05                         LD   B,05H 
   07C2    DF                    L07C2:  RST  18H 
   07C3    A0                            DEFB 20H+80H 
   07C4    7E                            LD   A,(HL) 
@@ -1868,11 +1870,11 @@
                                 ;
   0823    FE 52                 L0823:  CP   52H 
   0825    CC 0128                       CALL Z,INLINE 
-  0828    CC 063D                       CALL Z,L063D 
-  082B    18 A3                         JR   L07D0 
 	MACRO-80 3.44	09-Dec-81	PAGE	1-30
 
 
+  0828    CC 063D                       CALL Z,L063D 
+  082B    18 A3                         JR   L07D0 
                                 ;
                                 ;
                                 ; Funktion "D" --> Dump (TODO)
@@ -1931,11 +1933,11 @@
   088B    A0                            DEFB 20H+80H 
   088C    18 06                         JR   L0894 
                                 ;
-  088E    DF                    L088E:  RST  18H 
-  088F    20 28 41 29                   DEFM " (A)" 
 	MACRO-80 3.44	09-Dec-81	PAGE	1-31
 
 
+  088E    DF                    L088E:  RST  18H 
+  088F    20 28 41 29                   DEFM " (A)" 
   0893    A0                            DEFB 20H+80H 
   0894    ED 53 1800            L0894:  LD   (1800H),DE 
   0898    41                            LD   B,C 
@@ -1994,11 +1996,11 @@
                                 ;
   08F9    3A 185F               L08F9:  LD   A,(ARG3) 
   08FC    2F                            CPL 
-  08FD    32 185F                       LD   (ARG3),A 
-  0900    C3 0870                       JP   L0870 
 	MACRO-80 3.44	09-Dec-81	PAGE	1-32
 
 
+  08FD    32 185F                       LD   (ARG3),A 
+  0900    C3 0870                       JP   L0870 
                                 ;
   0903    11 0008               L0903:  LD   DE,0008H 
   0906    A7                            AND  A 
@@ -2057,11 +2059,11 @@
                                 ;
   095B    00 09 46 0D                   DEFB 00H,09H,46H,0DH 
   095F    CD 0A61                       CALL L0A61 
-  0962    1A                            LD   A,(DE) 
-  0963    FE 4A                         CP   4AH 
 	MACRO-80 3.44	09-Dec-81	PAGE	1-33
 
 
+  0962    1A                            LD   A,(DE) 
+  0963    FE 4A                         CP   4AH 
   0965    28 32                         JR   Z,L0999 
   0967    FE 27                         CP   27H 
   0969    28 02                         JR   Z,L096D 
@@ -2120,11 +2122,11 @@
   09B4    A7                            AND  A 
   09B5    E5                            PUSH HL 
   09B6    ED 52                         SBC  HL,DE 
-  09B8    E1                            POP  HL 
-  09B9    30 09                         JR   NC,L09C4 
 	MACRO-80 3.44	09-Dec-81	PAGE	1-34
 
 
+  09B8    E1                            POP  HL 
+  09B9    30 09                         JR   NC,L09C4 
   09BB    F1                            POP  AF 
   09BC    28 20                         JR   Z,L09DE 
   09BE    BE                            CP   (HL) 
@@ -2183,11 +2185,11 @@
   0A13    23                            INC  HL 
   0A14    10 F9                         DJNZ L0A0F 
   0A16    DF                            RST  18H 
-  0A17    20                            DEFM " " 
-  0A18    A0                            DEFB 20H+80H 
 	MACRO-80 3.44	09-Dec-81	PAGE	1-35
 
 
+  0A17    20                            DEFM " " 
+  0A18    A0                            DEFB 20H+80H 
   0A19    DD E5                         PUSH IX 
   0A1B    E1                            POP  HL 
   0A1C    23                            INC  HL 
@@ -2246,11 +2248,11 @@
   0A6E    ED 52                         SBC  HL,DE 
   0A70    44                            LD   B,H 
   0A71    4D                            LD   C,L 
-  0A72    E1                            POP  HL 
-  0A73    1B                            DEC  DE 
 	MACRO-80 3.44	09-Dec-81	PAGE	1-36
 
 
+  0A72    E1                            POP  HL 
+  0A73    1B                            DEC  DE 
   0A74    ED B0                         LDIR 
   0A76    D9                            EXX 
   0A77    C9                            RET 
@@ -2309,11 +2311,11 @@
   0AB2    CD 0ACE                       CALL UPRAMT       ;HL = letzte RAM-Zelle + 1
   0AB5    22 1877                       LD   (1877H),HL   ;Anwenderstack festlegen
   0AB8    18 10                         JR   OUTHL3       ;HEX-Adresse auf BS ausgeben
-                                ;
-                                ;
 	MACRO-80 3.44	09-Dec-81	PAGE	1-37
 
 
+                                ;
+                                ;
                                 ; Funktion "O" --> RAM-Test
                                 ;
   0ABA    00 09 4F 0D                   DEFB 00H,09H,4FH,0DH 
@@ -2372,11 +2374,11 @@
   0B23    C3 0A5B                       JP   L0A5B 
                                 ;
                                 ;
-                                ; Funktion "Z" --> Kassette verify (TODO)
-                                ;
 	MACRO-80 3.44	09-Dec-81	PAGE	1-38
 
 
+                                ; Funktion "Z" --> Kassette verify (TODO)
+                                ;
   0B26    00 09 5A 0D                   DEFB 00H,09H,5AH,0DH 
   0B2A    AF                            XOR  A 
   0B2B    3D                            DEC  A 
@@ -2435,11 +2437,11 @@
   0B8D    18 B4                         JR   L0B43 
                                 ;
   0B8F    FF                            DEFB 0FFH         ;Platzhalter 1 Byte
-                                ;
-                                        IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
 	MACRO-80 3.44	09-Dec-81	PAGE	1-39
 
 
+                                ;
+                                        IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
                                 ;
                                 ; UP 'Zeitschleife 18 ms' zur Tastaturentprellung
                                 ; -----------------------------------------------
@@ -2498,11 +2500,11 @@
   0BB8    06 08                         LD   B,08H 
   0BBA    36 4E                 L0BBA:  LD   (HL),4EH 
   0BBC    23                            INC  HL 
-  0BBD    10 FB                         DJNZ L0BBA 
-  0BBF    06 10                         LD   B,10H 
 	MACRO-80 3.44	09-Dec-81	PAGE	1-40
 
 
+  0BBD    10 FB                         DJNZ L0BBA 
+  0BBF    06 10                         LD   B,10H 
   0BC1    20 0C                         JR   NZ,L0BCF 
   0BC3    1A                    L0BC3:  LD   A,(DE) 
   0BC4    FE 22                         CP   22H 
@@ -2561,11 +2563,11 @@
   0C13    06 48                 L0C13:  LD   B,48H 
   0C15    10 FE                 L0C15:  DJNZ L0C15 
   0C17    CD 0C7A                       CALL L0C7A 
-  0C1A    1B                            DEC  DE 
-  0C1B    7B                            LD   A,E 
 	MACRO-80 3.44	09-Dec-81	PAGE	1-41
 
 
+  0C1A    1B                            DEC  DE 
+  0C1B    7B                            LD   A,E 
   0C1C    B2                            OR   D 
   0C1D    20 F4                         JR   NZ,L0C13 
   0C1F    0E 02                         LD   C,02H 
@@ -2624,11 +2626,11 @@
                                 ;
   0C7A    DB 05                 L0C7A:  IN   A,(P05) 
   0C7C    EE 40                         XOR  40H 
-  0C7E    D3 05                         OUT  (P05),A 
-  0C80    C9                            RET 
 	MACRO-80 3.44	09-Dec-81	PAGE	1-42
 
 
+  0C7E    D3 05                         OUT  (P05),A 
+  0C80    C9                            RET 
                                 ;
   0C81    FD 21 1882            L0C81:  LD   IY,1882H 
   0C85    2A 1880                       LD   HL,(1880H) 
@@ -2687,11 +2689,11 @@
                                 ;
   0CE7    CD 0D52               L0CE7:  CALL L0D52 
   0CEA    3E 2C                         LD   A,2CH 
-  0CEC    3D                    L0CEC:  DEC  A 
-  0CED    20 FD                         JR   NZ,L0CEC 
 	MACRO-80 3.44	09-Dec-81	PAGE	1-43
 
 
+  0CEC    3D                    L0CEC:  DEC  A 
+  0CED    20 FD                         JR   NZ,L0CEC 
   0CEF    CD 0D5A                       CALL L0D5A 
   0CF2    20 F3                         JR   NZ,L0CE7 
   0CF4    CD 0D52                       CALL L0D52 
@@ -2750,11 +2752,11 @@
   0D44    EB                            EX   DE,HL 
   0D45    DD E5                         PUSH IX 
   0D47    C1                            POP  BC 
-  0D48    AF                            XOR  A 
-  0D49    ED 42                         SBC  HL,BC 
 	MACRO-80 3.44	09-Dec-81	PAGE	1-44
 
 
+  0D48    AF                            XOR  A 
+  0D49    ED 42                         SBC  HL,BC 
   0D4B    EB                            EX   DE,HL 
   0D4C    C9                            RET 
                                 ;
@@ -2813,11 +2815,11 @@
   0D9E    CD 019A                       CALL OUTHL 
   0DA1    DF                            RST  18H 
   0DA2    20                            DEFM " " 
-  0DA3    A0                            DEFB 20H+80H 
-  0DA4    2A 18D1                       LD   HL,(18D1H) 
 	MACRO-80 3.44	09-Dec-81	PAGE	1-45
 
 
+  0DA3    A0                            DEFB 20H+80H 
+  0DA4    2A 18D1                       LD   HL,(18D1H) 
   0DA7    22 185D                       LD   (ARG2),HL 
   0DAA    C3 019A                       JP   OUTHL 
                                 ;
@@ -2876,11 +2878,11 @@
   0DF8    E9                            JP   (HL) 
                                 ;
                                 ;
-                                ; V.24 - Ausgabe UP
-                                ; -----------------
 	MACRO-80 3.44	09-Dec-81	PAGE	1-46
 
 
+                                ; V.24 - Ausgabe UP
+                                ; -----------------
                                 ;
   0DF9    E5                    V24OUT: PUSH HL 
   0DFA    D5                            PUSH DE 
@@ -2939,11 +2941,11 @@
   0E4C    CD 04CA                       CALL ARGLD        ;ARG1-->HL ARG2-->DE ARG3-->BC
   0E4F    CD 07F1               		CALL L07F1
   0E52    DF                            RST  18H 
-  0E53    A0                            DEFB 20H+80H 
-  0E54    EB                            EX   DE,HL 
 	MACRO-80 3.44	09-Dec-81	PAGE	1-47
 
 
+  0E53    A0                            DEFB 20H+80H 
+  0E54    EB                            EX   DE,HL 
   0E55    CD 07F1                       CALL L07F1 
   0E58    60                            LD   H,B 
   0E59    69                            LD   L,C 
@@ -3002,11 +3004,11 @@
   0EA3    18 EB                         JR   L0E90 
                                 ;
   0EA5    ED A0                 L0EA5:  LDI 
-  0EA7    1B                            DEC  DE 
-  0EA8    1B                            DEC  DE 
 	MACRO-80 3.44	09-Dec-81	PAGE	1-48
 
 
+  0EA7    1B                            DEC  DE 
+  0EA8    1B                            DEC  DE 
   0EA9    EA 0EA5                       JP   PE,L0EA5 
   0EAC    C9                            RET 
                                 ;
@@ -3065,11 +3067,11 @@
                                 ;
   0EC8    00 09 3F 0D                   DEFB 00H,09H,3FH,0DH 
   0ECC    DF                            RST  18H 
-  0ECD    48 65 6C 70                   DEFM "Help:" 
-  0ED1    3A                    
 	MACRO-80 3.44	09-Dec-81	PAGE	1-49
 
 
+  0ECD    48 65 6C 70                   DEFM "Help:" 
+  0ED1    3A                    
   0ED2    8D                            DEFB 0DH+80H 
   0ED3    21 0200                       LD   HL,0200H 
   0ED6    01 FE00                       LD   BC,0FE00H
@@ -3128,11 +3130,11 @@
   0F22    00 09 3D 0D                   DEFB 00H,09H,3DH,0DH 
   0F26    DF                            RST  18H 
   0F27    0B 86                         DEFB 0BH,06H+80H 
-  0F29    2A 1800                       LD   HL,(1800H) 
-  0F2C    DF                            RST  18H 
 	MACRO-80 3.44	09-Dec-81	PAGE	1-50
 
 
+  0F29    2A 1800                       LD   HL,(1800H) 
+  0F2C    DF                            RST  18H 
   0F2D    0E                            DEFB 0EH 
   0F2E    30 30 35 39                   DEFM "0059" 
   0F32    AF                            DEFB 2FH+80H      ;"/+80H 
@@ -3191,11 +3193,11 @@
   0F89    28 DE                         JR   Z,L0F69 
   0F8B    FE 0A                         CP   0AH 
   0F8D    C0                            RET  NZ 
-  0F8E    01 F000                       LD   BC,0F000H
-  0F91    09                            ADD  HL,BC 
 	MACRO-80 3.44	09-Dec-81	PAGE	1-51
 
 
+  0F8E    01 F000                       LD   BC,0F000H
+  0F91    09                            ADD  HL,BC 
   0F92    18 D5                         JR   L0F69 
                                 ;
                                         IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
@@ -3254,15 +3256,15 @@
   0FCF    C3 019A                       JP   OUTHL
                                 ;
   0FD2                                  DEFS 8,0FFH       ;Platzhalter 8 Byte
-                                ;
-                                ; Funktion "r" --> Basic-Warmstart
 	MACRO-80 3.44	09-Dec-81	PAGE	1-52
 
 
                                 ;
+                                ; Funktion "r" --> Basic-Warmstart
+                                ;
   0FDA    00 09 72 0D                   DEFB 00H,09H,72H,0DH 
   0FDE    3E 02                         LD   A,02H
-  0FE0    D3 14                         OUT  (P14),A
+  0FE0    D3 14                         OUT  (P14),A      ;Modul 1: EPROM mit Basic
   0FE2    C3 5FD5                       JP   5FD5H        ;Sprung ins Basic-Programm
                                 ;
                                 ;
@@ -3276,7 +3278,7 @@
                                 ;
   0FEC    09 62 0D                      DEFB 09H,62H,0DH  ;die 00H wird vom letzten Befehl genutzt
   0FEF    3E 02                         LD   A,02H
-  0FF1    D3 14                         OUT  (P14),A
+  0FF1    D3 14                         OUT  (P14),A      ;Modul 1: EPROM mit Basic
   0FF3    C3 5FCC                       JP   5FCCH        ;Sprung ins Basic-Programm
                                 ;
                                         ENDIF             ;Monitor 10/88 - Originalversion 1988
@@ -3317,11 +3319,11 @@
                                         RRCA
                                         AND  0F0H
                                         XOR  C
-                                        LD   C,A
-                                        POP  AF
 	MACRO-80 3.44	09-Dec-81	PAGE	1-53
 
 
+                                        LD   C,A
+                                        POP  AF
                                         AND  0E0H
                                         XOR  B
                                         LD   B,C
@@ -3370,44 +3372,44 @@
                                 ;
                                         DEFB 00H,09H,21H,0DH
                                         LD   A,(ARG1) 
-                                        OR   A
+                                        OR   A            ;wenn ARG1=0 ist --> Vorgabewert nehmen
                                         JR   NZ,FINIT1 
                                 ;
                                 ;
                                 ; Farb-Initialisierung des CPLD
                                 ;
-                                FINIT:  LD   A,02H        ;Farbbyte: Init.-Wert nach Reset = 02H
+                                FINIT:  LD   A,02H        ;Farbbyte: nach Reset = 02H
                                 FINIT1: PUSH AF 
-                                        XOR  A 
-                                        LD   (181FH),A 
-                                        POP  AF 
-                                        LD   C,0F0H
+                                        XOR  A            ;Wert fuer Monochrom-BWS
+                                        LD   (COLOR),A    ;Merkzelle fuer Farbbyte im RAM schreiben
 	MACRO-80 3.44	09-Dec-81	PAGE	1-54
 
 
-                                        IN   B,(C) 
-                                        INC  B 
-                                        RET  Z 
+                                        POP  AF 
+                                        LD   C,PF0        ;I/O-Adresse COLOR-BWS
+                                        IN   B,(C)        ;Konfigbyte COLOR-BWS lesen
+                                        INC  B            ;fuer COLOR-BWS ist B!=0
+                                        RET  Z            ;kein COLOR-BWS vorhanden --> Ende
                                         DEC  B 
                                         LD   D,B 
-                                        SET  2,D 
+                                        SET  2,D          ;Konfigbyte COLOR-BWS: Farb-RAM aktiv
                                         LD   HL,1000H 
                                         LD   E,(HL) 
-                                        OUT  (C),D 
-                                        LD   (HL),A 
-                                        CP   (HL) 
-                                        OUT  (C),B 
-                                        LD   (HL),E 
-                                        RET  NZ 
-                                        OUT  (C),D 
+                                        OUT  (C),D        ;COLOR-BWS auf Farb-RAM umschalten
+                                        LD   (HL),A       ;Farbe auf 1000h setzen
+                                        CP   (HL)         ;ist ein Farb-RAM eingebaut?
+                                        OUT  (C),B        ;Konfigbyte COLOR-BWS: Text-RAM aktiv
+                                        LD   (HL),E       ;Zeichen auf 1000h zurueckschreiben
+                                        RET  NZ           ;Farbe hat nicht geklappt --> Ende
+                                        OUT  (C),D        ;nochmal COLOR-BWS auf Farb-RAM umschalten
                                         PUSH BC 
                                         LD   DE,1001H 
                                         LD   BC,07FFH 
-                                        LDIR 
-                                        LD   A,(HL) 
+                                        LDIR              ;Farbe in den restlichen BWS-RAM schreiben
+                                        LD   A,(HL)       ;Farbe aus 17FEh ruecklesen
                                         POP  BC 
-                                        OUT  (C),B 
-                                        LD   (181FH),A 
+                                        OUT  (C),B        ;Konfigbyte COLOR-BWS: Text-RAM aktiv
+                                        LD   (COLOR),A    ;Merkzelle fuer Farbbyte im RAM schreiben
                                         RET 
                                 ;
                                 ;
@@ -3423,7 +3425,7 @@
                                 ;
                                         DEFB 00H,09H,72H,0DH 
                                         LD   A,02H
-                                        OUT  (P14),A
+                                        OUT  (P14),A      ;Modul 1: EPROM mit Basic
                                         JP   5FD5H        ;Sprung ins Basic-Programm
                                 ;
                                 ;
@@ -3437,54 +3439,54 @@
                                 ;
                                         DEFB 09H,62H,0DH  ;die 00H wird vom letzten Befehl genutzt
                                         LD   A,02H
-                                        OUT  (P14),A
+                                        OUT  (P14),A      ;Modul 1: EPROM mit Basic
                                         JP   5FCCH        ;Sprung ins Basic-Programm
                                 ;
                                         ENDIF             ;Monitor 10/88 - BWS-CPLD-Version 2011
                                         IFDEF MONI11A     ;Monitor 10/88 - BWS-CPLD-Version mit Anpassungen
                                 ;
-                                ; Funktion "!" --> Farbbyte einstellen
-                                ;
 	MACRO-80 3.44	09-Dec-81	PAGE	1-55
 
 
+                                ; Funktion "!" --> Farbbyte einstellen
+                                ;
                                         DEFB 00H,09H,21H,0DH
                                         LD   A,(ARG1) 
-                                        OR   A
+                                        OR   A            ;wenn ARG1=0 ist --> Vorgabewert nehmen
                                         JR   NZ,FINIT1 
                                 ;
                                 ;
                                 ; Farb-Initialisierung des CPLD
                                 ;
-                                FINIT:  LD   A,4FH        ;Farbbyte: Init.-Wert nach Reset = 4FH
+                                FINIT:  LD   A,4FH        ;Farbbyte: nach Reset = 4FH
                                 FINIT1: PUSH AF 
-                                        XOR  A 
-                                        LD   (181FH),A 
+                                        XOR  A            ;Wert fuer Monochrom-BWS
+                                        LD   (COLOR),A    ;Merkzelle fuer Farbbyte im RAM schreiben
                                         POP  AF 
-                                        LD   C,0F0H
-                                        IN   B,(C) 
-                                        INC  B 
-                                        RET  Z 
+                                        LD   C,PF0        ;I/O-Adresse COLOR-BWS
+                                        IN   B,(C)        ;Konfigbyte COLOR-BWS lesen
+                                        INC  B            ;fuer COLOR-BWS ist B!=0
+                                        RET  Z            ;kein COLOR-BWS vorhanden --> Ende
                                         DEC  B 
                                         LD   D,B 
-                                        SET  2,D 
+                                        SET  2,D          ;Konfigbyte COLOR-BWS: Farb-RAM aktiv
                                         LD   HL,1000H 
                                         LD   E,(HL) 
-                                        OUT  (C),D 
-                                        LD   (HL),A 
-                                        CP   (HL) 
-                                        OUT  (C),B 
-                                        LD   (HL),E 
-                                        RET  NZ 
-                                        OUT  (C),D 
+                                        OUT  (C),D        ;COLOR-BWS auf Farb-RAM umschalten
+                                        LD   (HL),A       ;Farbe auf 1000h setzen
+                                        CP   (HL)         ;ist ein Farb-RAM eingebaut?
+                                        OUT  (C),B        ;Konfigbyte COLOR-BWS: Text-RAM aktiv
+                                        LD   (HL),E       ;Zeichen auf 1000h zurueckschreiben
+                                        RET  NZ           ;Farbe hat nicht geklappt --> Ende
+                                        OUT  (C),D        ;nochmal COLOR-BWS auf Farb-RAM umschalten
                                         PUSH BC 
                                         LD   DE,1001H 
                                         LD   BC,07FFH 
-                                        LDIR 
-                                        LD   A,(HL) 
+                                        LDIR              ;Farbe in den restlichen BWS-RAM schreiben
+                                        LD   A,(HL)       ;Farbe aus 17FEh ruecklesen
                                         POP  BC 
-                                        OUT  (C),B 
-                                        LD   (181FH),A 
+                                        OUT  (C),B        ;Konfigbyte COLOR-BWS: Text-RAM aktiv
+                                        LD   (COLOR),A    ;Merkzelle fuer Farbbyte im RAM schreiben
                                         RET 
                                 ;
                                 ;
@@ -3506,11 +3508,11 @@
                                         LD   BC,0700H 
                                         LDIR 
                                         LD   A,00H 
-                                        OUT  (P0E),A 
-                                        JP   1900H        ;Programmstart ROM-Bank
 	MACRO-80 3.44	09-Dec-81	PAGE	1-56
 
 
+                                        OUT  (P0E),A 
+                                        JP   1900H        ;Programmstart ROM-Bank
                                 ;
                                         DEFS 2,0FFH       ;Platzhalter 2 Byte
                                 ;
@@ -3538,124 +3540,127 @@ Macros:
 
 Symbols:
 185B 	ARG1            185D 	ARG2            185F 	ARG3            
-04CA 	ARGLD           0240 	BREAK           069C 	COMP1           
-06BF 	COMP2           01A5 	CPURSA          035D 	DEL             
-0728 	EINZ1           00A2 	ENDE8           0268 	ERROR           
-0033 	FKT33           002B 	FKT33A          0300 	FKT33B          
-025B 	GETCO           0172 	INHEX           0AA8 	INIRSA          
-000B 	INIT1           001B 	INIT2           003B 	INIT3           
-0044 	INIT4           004D 	INIT5           0069 	INIT6           
-006E 	INIT7           012F 	INLIN1          013A 	INLIN2          
-0128 	INLINE          04E9 	JPLDIR          06FA 	JUMP1           
-0700 	JUMP2           070E 	JUMP3           006B 	JUMPX           
-0000 	L0000           0008 	L0008           0010 	L0010           
-0018 	L0018           0020 	L0020           0028 	L0028           
-0030 	L0030           00B3 	L00B3           00BD 	L00BD           
-00C1 	L00C1           00C3 	L00C3           00CA 	L00CA           
-01DB 	L01DB           01DE 	L01DE           01E7 	L01E7           
-021F 	L021F           0272 	L0272           0275 	L0275           
-0288 	L0288           0290 	L0290           02A0 	L02A0           
-02BB 	L02BB           02BD 	L02BD           02C3 	L02C3           
-02C5 	L02C5           0318 	L0318           031B 	L031B           
-0327 	L0327           0328 	L0328           032B 	L032B           
-032E 	L032E           0333 	L0333           0354 	L0354           
-0355 	L0355           0365 	L0365           036B 	L036B           
-0375 	L0375           0377 	L0377           037F 	L037F           
-0381 	L0381           0387 	L0387           038C 	L038C           
-038F 	L038F           0392 	L0392           0395 	L0395           
-039A 	L039A           03A0 	L03A0           03A8 	L03A8           
-03AB 	L03AB           03B3 	L03B3           03B8 	L03B8           
-03C0 	L03C0           03C7 	L03C7           03DC 	L03DC           
-03E3 	L03E3           03F6 	L03F6           0404 	L0404           
-0410 	L0410           0441 	L0441           0443 	L0443           
-044E 	L044E           045E 	L045E           0471 	L0471           
-047A 	L047A           0487 	L0487           0492 	L0492           
-0494 	L0494           0496 	L0496           04A4 	L04A4           
-04A8 	L04A8           04AD 	L04AD           04B5 	L04B5           
-051D 	L051D           0525 	L0525           052F 	L052F           
-0552 	L0552           0565 	L0565           0579 	L0579           
-057F 	L057F           0585 	L0585           05CE 	L05CE           
-05E3 	L05E3           05F3 	L05F3           05F9 	L05F9           
-0603 	L0603           063D 	L063D           064C 	L064C           
-0659 	L0659           0665 	L0665           0672 	L0672           
-0673 	L0673           067E 	L067E           06CE 	L06CE           
-072B 	L072B           0775 	L0775           077E 	L077E           
-0785 	L0785           078D 	L078D           0797 	L0797           
-07C2 	L07C2           07CF 	L07CF           07D0 	L07D0           
-07E8 	L07E8           07EB 	L07EB           07EE 	L07EE           
-07F1 	L07F1           07F4 	L07F4           07F7 	L07F7           
-07FA 	L07FA           07FD 	L07FD           0800 	L0800           
-0804 	L0804           0807 	L0807           0823 	L0823           
-0846 	L0846           0867 	L0867           0870 	L0870           
-0873 	L0873           088E 	L088E           0894 	L0894           
-0899 	L0899           08A6 	L08A6           08D7 	L08D7           
-08DE 	L08DE           08E3 	L08E3           08EB 	L08EB           
-08F3 	L08F3           08F9 	L08F9           0903 	L0903           
-090B 	L090B           0912 	L0912           091B 	L091B           
-0924 	L0924           0929 	L0929           092C 	L092C           
+04CA 	ARGLD           0240 	BREAK           181F 	COLOR           
+069C 	COMP1           06BF 	COMP2           01A5 	CPURSA          
+035D 	DEL             0728 	EINZ1           00A2 	ENDE8           
+0268 	ERROR           0033 	FKT33           002B 	FKT33A          
+0300 	FKT33B          025B 	GETCO           0172 	INHEX           
+0AA8 	INIRSA          000B 	INIT1           001B 	INIT2           
+003B 	INIT3           0044 	INIT4           004D 	INIT5           
+0069 	INIT6           006E 	INIT7           012F 	INLIN1          
+013A 	INLIN2          0128 	INLINE          04E9 	JPLDIR          
+06FA 	JUMP1           0700 	JUMP2           070E 	JUMP3           
+006B 	JUMPX           0000 	L0000           0008 	L0008           
+0010 	L0010           0018 	L0018           0020 	L0020           
+0028 	L0028           0030 	L0030           00B3 	L00B3           
+00BD 	L00BD           00C1 	L00C1           00C3 	L00C3           
+00CA 	L00CA           01DB 	L01DB           01DE 	L01DE           
+01E7 	L01E7           021F 	L021F           0272 	L0272           
+0275 	L0275           0288 	L0288           0290 	L0290           
+02A0 	L02A0           02BB 	L02BB           02BD 	L02BD           
+02C3 	L02C3           02C5 	L02C5           0318 	L0318           
+031B 	L031B           0327 	L0327           0328 	L0328           
+032B 	L032B           032E 	L032E           0333 	L0333           
+0354 	L0354           0355 	L0355           0365 	L0365           
+036B 	L036B           0375 	L0375           0377 	L0377           
+037F 	L037F           0381 	L0381           0387 	L0387           
+038C 	L038C           038F 	L038F           0392 	L0392           
+0395 	L0395           039A 	L039A           03A0 	L03A0           
+03A8 	L03A8           03AB 	L03AB           03B3 	L03B3           
+03B8 	L03B8           03C0 	L03C0           03C7 	L03C7           
+03DC 	L03DC           03E3 	L03E3           03F6 	L03F6           
+0404 	L0404           0410 	L0410           0441 	L0441           
+0443 	L0443           044E 	L044E           045E 	L045E           
+0471 	L0471           047A 	L047A           0487 	L0487           
+0492 	L0492           0494 	L0494           0496 	L0496           
+04A4 	L04A4           04A8 	L04A8           04AD 	L04AD           
+04B5 	L04B5           051D 	L051D           0525 	L0525           
+052F 	L052F           0552 	L0552           0565 	L0565           
+0579 	L0579           057F 	L057F           0585 	L0585           
+05CE 	L05CE           05E3 	L05E3           05F3 	L05F3           
+05F9 	L05F9           0603 	L0603           063D 	L063D           
+064C 	L064C           0659 	L0659           0665 	L0665           
+0672 	L0672           0673 	L0673           067E 	L067E           
+06CE 	L06CE           072B 	L072B           0775 	L0775           
+077E 	L077E           0785 	L0785           078D 	L078D           
+0797 	L0797           07C2 	L07C2           07CF 	L07CF           
+07D0 	L07D0           07E8 	L07E8           07EB 	L07EB           
+07EE 	L07EE           07F1 	L07F1           07F4 	L07F4           
+07F7 	L07F7           07FA 	L07FA           07FD 	L07FD           
+0800 	L0800           0804 	L0804           0807 	L0807           
+0823 	L0823           0846 	L0846           0867 	L0867           
+0870 	L0870           0873 	L0873           088E 	L088E           
+0894 	L0894           0899 	L0899           08A6 	L08A6           
+08D7 	L08D7           08DE 	L08DE           08E3 	L08E3           
+08EB 	L08EB           08F3 	L08F3           08F9 	L08F9           
+0903 	L0903           090B 	L090B           0912 	L0912           
+091B 	L091B           0924 	L0924           0929 	L0929           
 	MACRO-80 3.44	09-Dec-81	PAGE	S-1
 
 
-0932 	L0932           0938 	L0938           0957 	L0957           
-096D 	L096D           097D 	L097D           098E 	L098E           
-0999 	L0999           09A2 	L09A2           09AD 	L09AD           
-09B3 	L09B3           09C4 	L09C4           09C5 	L09C5           
-09DB 	L09DB           09DE 	L09DE           09EB 	L09EB           
-09F6 	L09F6           09FC 	L09FC           0A06 	L0A06           
-0A0F 	L0A0F           0A2B 	L0A2B           0A31 	L0A31           
-0A37 	L0A37           0A3C 	L0A3C           0A5B 	L0A5B           
-0A61 	L0A61           0A6A 	L0A6A           0A7B 	L0A7B           
-0A80 	L0A80           0B33 	L0B33           0B43 	L0B43           
-0B46 	L0B46           0B51 	L0B51           0B5B 	L0B5B           
-0B63 	L0B63           0B76 	L0B76           0B85 	L0B85           
-0B97 	L0B97           0BA5 	L0BA5           0BB3 	L0BB3           
-0BBA 	L0BBA           0BC3 	L0BC3           0BCF 	L0BCF           
-0BD4 	L0BD4           0BE1 	L0BE1           0BE6 	L0BE6           
-0BED 	L0BED           0BF7 	L0BF7           0BFD 	L0BFD           
-0C0B 	L0C0B           0C10 	L0C10           0C13 	L0C13           
-0C15 	L0C15           0C21 	L0C21           0C23 	L0C23           
-0C33 	L0C33           0C3A 	L0C3A           0C3E 	L0C3E           
-0C4E 	L0C4E           0C52 	L0C52           0C57 	L0C57           
-0C59 	L0C59           0C5B 	L0C5B           0C63 	L0C63           
-0C68 	L0C68           0C6B 	L0C6B           0C6D 	L0C6D           
-0C76 	L0C76           0C7A 	L0C7A           0C81 	L0C81           
-0C8D 	L0C8D           0C99 	L0C99           0CAC 	L0CAC           
-0CBD 	L0CBD           0CC5 	L0CC5           0CCA 	L0CCA           
-0CD0 	L0CD0           0CDB 	L0CDB           0CE7 	L0CE7           
-0CEC 	L0CEC           0CF9 	L0CF9           0D06 	L0D06           
-0D09 	L0D09           0D23 	L0D23           0D2D 	L0D2D           
-0D32 	L0D32           0D34 	L0D34           0D38 	L0D38           
-0D3B 	L0D3B           0D52 	L0D52           0D5A 	L0D5A           
-0D64 	L0D64           0D67 	L0D67           0D6F 	L0D6F           
-0D70 	L0D70           0D7C 	L0D7C           0D81 	L0D81           
-0D83 	L0D83           0D86 	L0D86           0D8E 	L0D8E           
-0DAD 	L0DAD           0DC9 	L0DC9           0DE1 	L0DE1           
-0DF0 	L0DF0           0E90 	L0E90           0E9B 	L0E9B           
-0EA5 	L0EA5           0EB4 	L0EB4           0ED9 	L0ED9           
-0F07 	L0F07           0F48 	L0F48           0F66 	L0F66           
-0F69 	L0F69           0F6C 	L0F6C           0F94 	L0F94           
-0F96 	L0F96           0FA1 	L0FA1           0001 	MONI88          
-011D 	MS30            0121 	MS30A           00D6 	NOTAST          
-010C 	NOV24           0183 	OUTHEX          019A 	OUTHL           
-0589 	OUTHL1          058C 	OUTHL2          0ACA 	OUTHL3          
-018C 	OUTHX1          0197 	OUTHX2          0000 	P00             
-0004 	P04             0005 	P05             0008 	P08             
-000E 	P0E             000F 	P0F             0014 	P14             
-0016 	P16             009B 	PIEP            0116 	PROGX           
-01D1 	RSACP1          01BC 	RSACPU          00A5 	RST08           
-0013 	RST10           0EF2 	RST10A          0EFB 	RST10B          
-0F0B 	RST10C          0F1F 	RST10D          0A8D 	RST18           
-0A8F 	RST18A          0743 	RUNBP           0220 	SPTAB           
-0AD8 	TABIO           0D4D 	TASTE           0156 	UPINH1          
-0168 	UPINH2          0146 	UPINHX          0ACE 	UPRAMT          
-0297 	UPTAST          0287 	UPTON           01D6 	V24IN           
-00D9 	V24IN1          00E1 	V24IN2          00E8 	V24IN3          
-00EF 	V24IN4          00F6 	V24IN5          00F9 	V24IN6          
-0E0C 	V24OU1          0E12 	V24OU2          0E1A 	V24OU3          
-0E22 	V24OU4          0E28 	V24OU5          0E2F 	V24OU6          
-0E30 	V24OU7          0E37 	V24OU8          0DF9 	V24OUT          
-02F0 	ZGUMS           
+092C 	L092C           0932 	L0932           0938 	L0938           
+0957 	L0957           096D 	L096D           097D 	L097D           
+098E 	L098E           0999 	L0999           09A2 	L09A2           
+09AD 	L09AD           09B3 	L09B3           09C4 	L09C4           
+09C5 	L09C5           09DB 	L09DB           09DE 	L09DE           
+09EB 	L09EB           09F6 	L09F6           09FC 	L09FC           
+0A06 	L0A06           0A0F 	L0A0F           0A2B 	L0A2B           
+0A31 	L0A31           0A37 	L0A37           0A3C 	L0A3C           
+0A5B 	L0A5B           0A61 	L0A61           0A6A 	L0A6A           
+0A7B 	L0A7B           0A80 	L0A80           0B33 	L0B33           
+0B43 	L0B43           0B46 	L0B46           0B51 	L0B51           
+0B5B 	L0B5B           0B63 	L0B63           0B76 	L0B76           
+0B85 	L0B85           0B97 	L0B97           0BA5 	L0BA5           
+0BB3 	L0BB3           0BBA 	L0BBA           0BC3 	L0BC3           
+0BCF 	L0BCF           0BD4 	L0BD4           0BE1 	L0BE1           
+0BE6 	L0BE6           0BED 	L0BED           0BF7 	L0BF7           
+0BFD 	L0BFD           0C0B 	L0C0B           0C10 	L0C10           
+0C13 	L0C13           0C15 	L0C15           0C21 	L0C21           
+0C23 	L0C23           0C33 	L0C33           0C3A 	L0C3A           
+0C3E 	L0C3E           0C4E 	L0C4E           0C52 	L0C52           
+0C57 	L0C57           0C59 	L0C59           0C5B 	L0C5B           
+0C63 	L0C63           0C68 	L0C68           0C6B 	L0C6B           
+0C6D 	L0C6D           0C76 	L0C76           0C7A 	L0C7A           
+0C81 	L0C81           0C8D 	L0C8D           0C99 	L0C99           
+0CAC 	L0CAC           0CBD 	L0CBD           0CC5 	L0CC5           
+0CCA 	L0CCA           0CD0 	L0CD0           0CDB 	L0CDB           
+0CE7 	L0CE7           0CEC 	L0CEC           0CF9 	L0CF9           
+0D06 	L0D06           0D09 	L0D09           0D23 	L0D23           
+0D2D 	L0D2D           0D32 	L0D32           0D34 	L0D34           
+0D38 	L0D38           0D3B 	L0D3B           0D52 	L0D52           
+0D5A 	L0D5A           0D64 	L0D64           0D67 	L0D67           
+0D6F 	L0D6F           0D70 	L0D70           0D7C 	L0D7C           
+0D81 	L0D81           0D83 	L0D83           0D86 	L0D86           
+0D8E 	L0D8E           0DAD 	L0DAD           0DC9 	L0DC9           
+0DE1 	L0DE1           0DF0 	L0DF0           0E90 	L0E90           
+0E9B 	L0E9B           0EA5 	L0EA5           0EB4 	L0EB4           
+0ED9 	L0ED9           0F07 	L0F07           0F48 	L0F48           
+0F66 	L0F66           0F69 	L0F69           0F6C 	L0F6C           
+0F94 	L0F94           0F96 	L0F96           0FA1 	L0FA1           
+0001 	MONI88          011D 	MS30            0121 	MS30A           
+00D6 	NOTAST          010C 	NOV24           0183 	OUTHEX          
+019A 	OUTHL           0589 	OUTHL1          058C 	OUTHL2          
+0ACA 	OUTHL3          018C 	OUTHX1          0197 	OUTHX2          
+0000 	P00             0004 	P04             0005 	P05             
+0008 	P08             000E 	P0E             000F 	P0F             
+0014 	P14             0016 	P16             00F0 	PF0             
+009B 	PIEP            0116 	PROGX           01D1 	RSACP1          
+01BC 	RSACPU          00A5 	RST08           0013 	RST10           
+0EF2 	RST10A          0EFB 	RST10B          0F0B 	RST10C          
+0F1F 	RST10D          0A8D 	RST18           0A8F 	RST18A          
+0743 	RUNBP           0220 	SPTAB           0AD8 	TABIO           
+0D4D 	TASTE           0156 	UPINH1          0168 	UPINH2          
+0146 	UPINHX          0ACE 	UPRAMT          0297 	UPTAST          
+0287 	UPTON           01D6 	V24IN           00D9 	V24IN1          
+00E1 	V24IN2          00E8 	V24IN3          00EF 	V24IN4          
+00F6 	V24IN5          00F9 	V24IN6          0E0C 	V24OU1          
+0E12 	V24OU2          0E1A 	V24OU3          0E22 	V24OU4          
+0E28 	V24OU5          0E2F 	V24OU6          0E30 	V24OU7          
+0E37 	V24OU8          0DF9 	V24OUT          02F0 	ZGUMS           
 
 
 
 No Fatal error(s)
+
+
+
