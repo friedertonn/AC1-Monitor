@@ -1,6 +1,6 @@
 ; ************************************************************
 ; *                                                          *
-; *  MONITOR 10/88 fuer den AC 1     Version vom 31.05.2022  *
+; *  MONITOR 10/88 fuer den AC 1     Version vom 28.07.2022  *
 ; *                                                          *
 ; ************************************************************
 ;
@@ -17,7 +17,7 @@
 ; - Backspace/DEL mit 7FH (Adr. 0323H)
 ; - RAM loeschen mit Kommando "p" von 1858H bis 0FEFFH
 ; - die Monitorkommandos "X", "b" und "r" wurden entfernt
-; - neues Monitorkommando "X": Start der AC1 ROM-Bank
+; - neues Monitorkommando "X": Start der AC1-2010 ROM-Bank
 ;
 ; MONI11 - Korrekturen an der BWS-CPLD-Version 2011:
 ; - Fehler beim Monitorkommando "7" fuer die PIO2-Karte:
@@ -31,7 +31,7 @@
 ;
 ;
 ; ***************************************************
-; *  Wichtig: Hier muss die geforderte              *
+; *  Wichtig: Hier muss die gewuenschte             *
 ; *           Monitorversion auskommentiert werden  *
 ; ***************************************************
 MONI88  EQU  1       ;Monitor 10/88 - Originalversion 1988
@@ -65,15 +65,19 @@ MONI88  EQU  1       ;Monitor 10/88 - Originalversion 1988
         .CREF
         .Z80
 ;
+KURPOS  EQU  1800H        ;Zwischenspeicher Kursor
+ZWINL   EQU  181AH        ;Zwischenspeicher 'Inline'
 COLOR   EQU  181FH        ;Merkzelle fuer das Farbbyte im RAM
+V24REG  EQU  1820H        ;V.24-Kontrollregister
+IOBYTE  EQU  1821H        ;Merkzelle fuer das I/O-Byte
 ARG1    EQU  185BH
 ARG2    EQU  185DH
 ARG3    EQU  185FH
 ;
 P00     EQU  00H          ;CTC
-P04     EQU  04H          ;PIO 1
-P05     EQU  05H 
-P08     EQU  08H          ;PIO 2
+P04     EQU  04H          ;PIO 1 - Port A (Daten)
+P05     EQU  05H          ;PIO 1 - Port B (Daten)
+P08     EQU  08H          ;PIO 2 - Port A (Daten)
 P0E     EQU  0EH          ;ROM-Bank: EPROM-Einblendung
 P0F     EQU  0FH          ;PIO2-Karte: EPROM-Einblendung
 P14     EQU  14H          ;Modul 1: Konfigurationsregister
@@ -122,7 +126,7 @@ L0018:  JP   1808H        ;Sprungtabelle 1808H
 ;
 ; Init2 nach Reset
 ;
-INIT2:  LD   DE,1800H 
+INIT2:  LD   DE,KURPOS
         JR   INIT3 
 ;
 ;
@@ -275,7 +279,7 @@ ENDE8:  POP  BC
 ;
 RST08:  PUSH HL 
         PUSH BC 
-        LD   A,(1821H)    ;LD A,I/O-Byte 
+        LD   A,(IOBYTE)   ;LD A,I/O-Byte 
         RRCA              ;Rotiere A-Register rechts
         JR   NC,NOTAST    ;anderes Eingabegeraet (keine Tastatur)
         LD   HL,1857H
@@ -286,7 +290,7 @@ L00B3:  CALL UPTAST
         DEC  B 
         JR   NZ,L00B3 
         LD   (HL),01H 
-L00BD:  LD   HL,(1800H) 
+L00BD:  LD   HL,(KURPOS) 
         LD   C,(HL) 
 L00C1:  LD   (HL),7FH 
 L00C3:  CALL UPTAST 
@@ -307,7 +311,7 @@ NOTAST: RRCA              ;Rotiere A-Register rechts
 ; Eingabegeraet = V.24
 ; --------------------
 ;
-V24IN1: LD   A,(1820H)    ;V.24-Kontrollregister
+V24IN1: LD   A,(V24REG)   ;V.24-Kontrollregister
         AND  07H          ;Selektion der Baudrate
         LD   B,A          ;B = Baudrate (kodiert)
         LD   A,01H 
@@ -400,7 +404,7 @@ INLINE: PUSH AF
         DEFB 20H+80H 
         NOP 
 INLIN1: RST  08H          ;1 Zeichen lesen
-        LD   HL,(1800H)   ;Kursorposition merken
+        LD   HL,(KURPOS)  ;Kursorposition merken
         RST  10H          ;1 Zeichen ausgeben
         CP   0DH 
         JR   NZ,INLIN1    ;Wiederholung, bis CR gedrueckt wurde
@@ -410,7 +414,7 @@ INLIN2: INC  HL           ;1 Kursorposition zurueck
         JR   NZ,INLIN2    ;nein
         DEC  HL 
         DEC  HL           ;jetzt 2 Kursorpositionen nach vorn
-        LD   (181AH),HL   ;Bildschirm-Adresse speichern
+        LD   (ZWINL),HL   ;Bildschirm-Adresse speichern
         POP  HL 
         POP  AF 
         RET 
@@ -559,47 +563,51 @@ V24IN:  PUSH HL
         PUSH BC 
         JP   V24IN1 
 ;
-L01DB:  RST  18H 
+;
+; kein gueltiges Zeichen bei der Kommandozeicheneingabe
+; -----------------------------------------------------
+;
+KOMM0:  RST  18H 
         DEFM " " 
         DEFB 3FH+80H      ;"?+80H 
 ;
 ;
-; Warteschleife Kommandozeicheneingabe (TODO)
+; Warteschleife Kommandozeicheneingabe
 ; ------------------------------------
 ;
-L01DE:  CALL INLINE 
-        LD   HL,0200H 
-        LD   BC,0FE00H
-L01E7:  XOR  A 
+KOMM1:  CALL INLINE       ;Kommandozeile lesen (Adresse 01DEH)
+        LD   HL,0200H     ;Anfangsadresse fuer Suchbereich
+        LD   BC,0FE00H    ;Laenge des Suchbereiches
+KOMM2:  XOR  A            ;1. Such-Byte = 00H
         CPIR 
-        JP   PO,L01DB 
-        LD   A,09H 
+        JP   PO,KOMM0     ;BC=0 --> nichts gefunden, nochmal
+        LD   A,09H        ;2. Such-Byte = 09H
         CP   (HL) 
-        JR   NZ,L01E7 
+        JR   NZ,KOMM2 
         INC  HL 
-        LD   DE,(181AH) 
+        LD   DE,(ZWINL)   ;3. Such-Byte = aus Kommandozeile
         LD   A,(DE) 
         CP   (HL) 
-        JR   NZ,L01E7 
+        JR   NZ,KOMM2 
         INC  HL 
-        LD   A,0DH 
+        LD   A,0DH        ;4. Such-Byte = 0DH
         CP   (HL) 
-        JR   NZ,L01E7 
-        LD   BC,01DEH 
-        PUSH BC 
-        INC  HL 
-        PUSH HL 
-        DEC  DE 
+        JR   NZ,KOMM2 
+        LD   BC,01DEH     ;Adresse Kommandozeicheneingabe
+        PUSH BC           ;als Ruecksprung bei RET+RET
+        INC  HL           ;Startadresse vom gefundenen Kommando
+        PUSH HL           ;als Ruecksprung bei RET
+        DEC  DE           ;naechstes Zeichen in der Kommandozeile
         CALL INHEX 
         LD   A,(DE) 
-        CP   3AH 
-        JR   Z,L021F 
-        LD   (ARG1),HL 
+        CP   3AH          ;":" --> gespeicherte Argumente nehmen
+        JR   Z,KOMM3 
+        LD   (ARG1),HL    ;Argumente aus der Kommandozeile laden
         CALL INHEX 
         LD   (ARG2),HL 
         CALL INHEX 
         LD   (ARG3),HL 
-L021F:  RET
+KOMM3:  RET
 ;
 ;
 ; Sprungverteiler fuer RST und NMI (insgesamt 32 Bytes)
@@ -633,7 +641,7 @@ SPTAB:  JP   RST08        ;Einsprungpunkt fuer RST 08H
         DEFB 00H          ;Warmstartcode
         DEFB 02H          ;Kommando-Code V.24 (9600 Baud)
         ENDIF
-        DEFB 11H          ;Ein/Ausgabebyte (Adresse 1821H)
+        DEFB 11H          ;I/O-Byte (Adresse 1821H)
 ;
 ;
 ; Einsprungpunkt fuer RST 38H und NMI
@@ -646,7 +654,7 @@ BREAK:  CALL CPURSA        ;UP, CPU-Register ausraeumen nach RSA
         LD   (1877H),SP 
         LD   SP,1856H     ;Stack 
         LD   A,11H 
-        LD   (1821H),A    ;LD I/O-Byte,A
+        LD   (IOBYTE),A   ;LD I/O-Byte,A
         RST  18H 
         DEFM " BREA" 
         DEFB 4BH+80H      ;"K+80H 
@@ -658,7 +666,7 @@ BREAK:  CALL CPURSA        ;UP, CPU-Register ausraeumen nach RSA
 GETCO:  LD   SP,1856H     ;Stack 
         LD   A,0DAH
         OUT  (P05),A 
-        LD   HL,01DEH 
+        LD   HL,01DEH     ;Adresse Kommandozeicheneingabe
         PUSH HL 
         RETN 
 ;
@@ -675,15 +683,15 @@ ERROR:  RST  18H
 ; UP 'akustisches Signal'
 ; -----------------------
 ;
-L0272:  PUSH BC 
+TUELUE: PUSH BC 
         LD   B,02H 
-L0275:  PUSH BC 
+TUELU1: PUSH BC 
         LD   BC,0040H 
         CALL UPTON        ;UP 'Ton', Reg, B = Tonlaenge, C = Tonhoehe
         LD   BC,0F032H
         CALL UPTON        ;UP 'Ton', Reg, B = Tonlaenge, C = Tonhoehe
         POP  BC 
-        DJNZ L0275 
+        DJNZ TUELU1 
         POP  BC 
         RET 
 ;
@@ -819,7 +827,7 @@ FKT0:   OUT  (P0F),A
 ZGUMS:  IN   A,(P05)
         XOR  08H 
         OUT  (P05),A 
-        JR   L032E 
+        JR   BSEND3 
 ;
 ;
         IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
@@ -854,28 +862,28 @@ ALTMO:  LD   (0FFFEH),HL  ;wird von Fkt. "Y" angesprungen
         ENDIF
 ;
 ;
-; Funktion Ausgabe ueber Bildschirm - Teil 3 (TODO)
+; Funktion Ausgabe ueber Bildschirm - Teil 3
 ; ------------------------------------------
 ;
 FKT33B: PUSH BC 
-        LD   DE,(1800H) 
+        LD   DE,(KURPOS)  ;Kursorposition auf dem BS
         LD   HL,1856H     ;Stack
-        CP   10H 
-        JR   NC,L0318 
-        LD   (HL),01H 
-        LD   BC,03C7H 
-        ADD  A,C 
+        CP   10H          ;ist es ein BS-Steuerzeichen 00H...0FH?
+        JR   NC,FKT33C    ;nein
+        LD   (HL),01H     ;ja --> Merker in 1856H setzen
+        LD   BC,03C7H     ;Adresse vom Sprungverteiler fuer BS-Befehle
+        ADD  A,C          ;Wertebereich von A = 00H...0FH
         LD   C,A 
-        LD   A,(BC) 
+        LD   A,(BC)       ;NWT der Einsprungadresse holen, HWT = 03H
         LD   C,A 
-        PUSH BC 
-        EX   DE,HL 
-        RET 
+        PUSH BC           ;Einsprungadresse in den Stack
+        EX   DE,HL        ;Kursorposition in HL, Stack in DE
+        RET               ;zur Einsprungadresse springen
 ;
-L0318:  DEC  (HL) 
-        JR   NZ,L0333 
-L031B:  LD   (HL),01H 
-        EX   DE,HL 
+FKT33C: DEC  (HL)         ;muessen noch Argumente uebergeben werden?
+        JR   NZ,KUPOSI    ;ja (fuer Kursorpositionierung mit Kommando 0EH)
+FKT33D: LD   (HL),01H     ;nein
+        EX   DE,HL        ;Kursorposition in HL, Stack in DE
         CP   1AH          ;^Z = Zeichensatz umschalten
         JR   Z,ZGUMS 
         IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
@@ -890,156 +898,200 @@ L031B:  LD   (HL),01H
         IFDEF MONI11A     ;Monitor 10/88 - BWS-CPLD-Version mit Anpassungen
         CP   7FH          ;Backspace/DEL mit 7FH
         ENDIF
-        JR   Z,DEL 
-        LD   (HL),A 
-L0327:  DEC  HL 
-L0328:  CALL L03DC 
-L032B:  LD   (1800H),HL 
-L032E:  POP  BC 
+        JR   Z,DELETE 
+        LD   (HL),A       ;lade Zeichen auf Kursorposition
+;
+; 09H --> Kursor nach rechts
+;
+BS0327: DEC  HL           ;Kursorposition--
+BSEND1: CALL SCROLL       ;muss der BS gescrollt werden?
+BSEND2: LD   (KURPOS),HL  ;Kursorposition in Kursorspeicher
+BSEND3: POP  BC 
         POP  DE 
         POP  HL 
         POP  AF 
         RET 
 ;
-L0333:  CP   30H 
-        JR   C,L031B 
-        JR   Z,L032E 
-        CP   3AH 
-        JR   NC,L031B 
-        SUB  30H 
-        LD   B,(HL) 
-        EX   DE,HL 
-        LD   DE,0FFFFH
-        DEC  B 
-        JR   Z,L0354 
-        LD   E,0F6H
-        DEC  B 
-        JR   Z,L0354 
-        LD   E,0C0H
-        DEC  B 
-        JR   Z,L0354 
-        LD   DE,0FD80H
-L0354:  LD   B,A 
-L0355:  ADD  HL,DE 
-        CALL L03DC 
-        DJNZ L0355 
-        JR   L032B 
+; Auswertung der Argumente fuer die Kursorpositionierung
+; 1. Argument = BS-Zeile - Zehner
+; 2. Argument = BS-Zeile - Einer
+; 3. Argument = BS-Spalte - Zehner
+; 4. Argument = BS-Spalte - Einer
 ;
+KUPOSI: CP   30H          ;A < "0"?   A = "0"?
+        JR   C,FKT33D     ;kein gueltiges Argument
+        JR   Z,BSEND3     ;bei "0" Funktion verlassen
+        CP   3AH          ;A >= "9"?
+        JR   NC,FKT33D    ;kein gueltiges Argument
+        SUB  30H          ;A = 01H...09H
+        LD   B,(HL)       ;lfd. Nr. des Arguments 1...4
+        EX   DE,HL        ;Kursorposition in HL
+        LD   DE,0FFFFH    ;--> 1 Zeichen nach rechts
+        DEC  B 
+        JR   Z,KUPOS1     ;4. Argument
+        LD   E,0F6H       ;--> 10 Zeichen nach rechts
+        DEC  B 
+        JR   Z,KUPOS1     ;3. Argument
+        LD   E,0C0H       ;--> 1 Zeile nach unten
+        DEC  B 
+        JR   Z,KUPOS1     ;2. Argument 
+        LD   DE,0FD80H    ;--> 10 Zeilen nach unten
+KUPOS1: LD   B,A 
+KUPOS2: ADD  HL,DE        ;Kursorposition veraendern
+        CALL SCROLL 
+        DJNZ KUPOS2       ;1...9 mal wiederholen
+        JR   BSEND2 
 ;
 ; Kursor nach links und Zeichen loeschen
 ;
-DEL:    INC  HL 
-        CALL L03DC 
+DELETE: INC  HL           ;Kursorposition++
+        CALL SCROLL 
         LD   (HL),20H 
-        JR   L032B 
-;Ansprung unklar
-L0365:  LD   HL,17FFH 
-        LD   (1800H),HL 
-L036B:  LD   (HL),20H 
+        JR   BSEND2 
+;
+; 0CH --> Kursor Home + Bildschirm loeschen
+;
+BS0365: LD   HL,17FFH 
+        LD   (KURPOS),HL  ;Kursor Home
+;
+; 02H --> Bildschirm ab Kursor loeschen
+;
+BS036B: LD   (HL),20H     ;Bildschirm loeschen
         DEC  HL 
         LD   A,H 
         CP   0FH 
-        JR   NZ,L036B 
-        JR   L032E 
-;Ansprung unklar
-L0375:  LD   (HL),20H 
-L0377:  DEC  HL 
+        JR   NZ,BS036B 
+        JR   BSEND3 
+;
+; 03H --> Zeile ab Kursorposition loeschen
+;
+BS0375: LD   (HL),20H 
+CLRLIN: DEC  HL 
         LD   (HL),20H 
         LD   A,3FH 
         AND  L 
-        JR   NZ,L0377 
-L037F:  JR   L032E 
-;Ansprung unklar
-L0381:  LD   A,L 
+        JR   NZ,CLRLIN 
+CLREND: JR   BSEND3 
+;
+; 06H --> Kursor an den Anfang der Zeile
+;
+BS0381: LD   A,L 
         OR   3FH 
         LD   L,A 
-        JR   L032B 
-;Ansprung unklar
-L0387:  CALL L0272 
-        JR   L032E 
-;Ansprung unklar
-L038C:  INC  HL 
-        JR   L0328 
-;Ansprung unklar
-L038F:  LD   DE,0FFC0H
-L0392:  ADD  HL,DE 
-        JR   L0328 
-;Ansprung unklar
-L0395:  LD   DE,0040H 
-        JR   L0392 
-;Ansprung unklar
-L039A:  LD   A,L 
+        JR   BSEND2 
+;
+; 07H --> akustisches Signal
+;
+BS0387: CALL TUELUE 
+        JR   BSEND3 
+;
+; 08H --> Kursor nach links
+;
+BS038C: INC  HL 
+        JR   BSEND1 
+;
+; 0AH --> Kursor nach unten
+;
+BS038F: LD   DE,0FFC0H
+KURMOV: ADD  HL,DE 
+        JR   BSEND1 
+;
+; 0BH --> Kursor nach oben
+;
+BS0395: LD   DE,0040H 
+        JR   KURMOV 
+;
+; 0DH --> CR; Kursor an den Anfang naechster Zeile
+;
+BS039A: LD   A,L 
         AND  0C0H
         LD   L,A 
-        JR   L0327 
-;Ansprung unklar
-L03A0:  LD   A,05H 
+        JR   BS0327 
+;
+; 0EH --> Kursor direkt positionieren
+;
+BS03A0: LD   A,05H        ;4 Argumente folgen (2x Zeile, 2x Spalte)
         LD   (DE),A 
-        LD   HL,17FFH 
-        JR   L032B 
-;Ansprung unklar
-L03A8:  LD   D,H 
+;
+; 01H --> Home: Kursor nach oben links
+;
+BS03A3: LD   HL,17FFH 
+        JR   BSEND2 
+;
+; 04H --> Delete: 1 Zeichen loeschen, Zeile rueckt nach links
+;
+BS03A8: LD   D,H 
         LD   E,L 
         DEC  HL 
-L03AB:  LD   A,L 
+DELE1:  LD   A,L 
         LDD 
         AND  3FH 
-        JR   NZ,L03AB 
+        JR   NZ,DELE1 
         INC  DE 
-L03B3:  LD   A,20H 
+DELE2:  LD   A,20H 
         LD   (DE),A 
-        JR   L037F 
-;Ansprung unklar
-L03B8:  LD   A,L 
+        JR   CLREND 
+;
+; 05H --> Insert: Space einfuegen, Zeile rueckt nach rechts
+;
+BS03B8: LD   A,L 
         AND  0C0H
         LD   E,A 
         LD   A,L 
         LD   L,E 
         LD   D,H 
         INC  HL 
-L03C0:  CP   E 
-        JR   Z,L03B3 
+INSE1:  CP   E 
+        JR   Z,DELE2 
         LDI 
-        JR   L03C0 
-;Ansprung unklar
-L03C7:  LD   L,0A3H
-        LD   L,E 
-        LD   (HL),L 
-        XOR  B 
-        CP   B 
-        ADD  A,C 
-        ADD  A,A 
-        ADC  A,H 
-        DAA 
-        ADC  A,A 
-        SUB  L 
-        LD   H,L 
-        SBC  A,D 
-        AND  B 
-        RST  10H 
-        LD   DE,0FFF8H
-        JR   L0392 
+        JR   INSE1 
 ;
-L03DC:  LD   A,H 
-        CP   18H 
-        JR   C,L03E3 
-        LD   H,10H 
-L03E3:  CP   10H 
-        RET  NC 
-        LD   A,L 
+; Sprungverteiler (NWT) fuer BS-Befehle: (HWT = 03H)
+;
+BS03C7: DEFB 2EH          ;00H --> Fkt. verlassen
+        DEFB 0A3H         ;01H --> Home: Kursor nach oben links (BS03A3)
+        DEFB 6BH          ;02H --> Bildschirm ab Kursor loeschen (BS036B)
+        DEFB 75H          ;03H --> Zeile ab Kursorposition loeschen (BS0375)
+        DEFB 0A8H         ;04H --> Delete: 1 Zeichen loeschen, Zeile rueckt nach links (BS03A8)
+        DEFB 0B8H         ;05H --> Insert: Space einfuegen, Zeile rueckt nach rechts (BS03B8)
+        DEFB 81H          ;06H --> Kursor an den Anfang der Zeile (BS0381)
+        DEFB 87H          ;07H --> akustisches Signal (BS0387)
+        DEFB 8CH          ;08H --> Kursor nach links (BS038C)
+        DEFB 27H          ;09H --> Kursor nach rechts (BS0327)
+        DEFB 8FH          ;0AH --> Kursor nach unten (BS038F)
+        DEFB 95H          ;0BH --> Kursor nach oben (BS0395)
+        DEFB 65H          ;0CH --> Kursor Home, Bildschirm loeschen (BS0365)
+        DEFB 9AH          ;0DH --> CR; Kursor an den Anfang naechster Zeile (BS039A)
+        DEFB 0A0H         ;0EH --> Kursor direkt positionieren (BS03A0)
+        DEFB 0D7H         ;0FH --> Tabulator 8 Spalten (BS03D7)
+;
+; 0FH --> Tabulator 8 Spalten
+;
+BS03D7: LD   DE,0FFF8H
+        JR   KURMOV 
+;
+; Bildschirm um 1 Zeile nach oben rollen
+;
+SCROLL: LD   A,H          ;HWT Kursorposition
+        CP   18H          ;Kursor hat BS nach oben verlassen?
+        JR   C,SCROL1     ;nein
+        LD   H,10H        ;ja --> auf unterste BS-Zeile setzen
+SCROL1: CP   10H          ;HWT im Bereich 10H...17H?
+        RET  NC           ;ja --> kein Scrollen erforderlich
+        LD   A,L          ;NWT Kursorposition merken
         PUSH DE 
         PUSH BC 
         LD   HL,17BFH 
         LD   DE,17FFH 
         LD   BC,07C0H 
-        LDDR 
+        LDDR              ;1 Zeile nach oben scrollen
         EX   DE,HL 
         INC  HL 
-L03F6:  DEC  L 
-        LD   (HL),20H 
-        JR   NZ,L03F6 
+SCROL2: DEC  L 
+        LD   (HL),20H     ;unterste Zeile loeschen
+        JR   NZ,SCROL2 
         AND  3FH 
-        LD   L,A 
+        LD   L,A          ;Kursorposition NWT zurueck in L
         POP  BC 
         POP  DE 
         RET 
@@ -1110,7 +1162,7 @@ L044E:  RST  18H
         DEFB 09H+80H 
         DJNZ L044E 
         CALL L07F1 
-        LD   DE,(1800H) 
+        LD   DE,(KURPOS) 
         RST  18H 
         DEFM ">" 
         DEFB 20H+80H 
@@ -1458,7 +1510,7 @@ L0603:  LD   A,(DE)
 ;
 ; ??? (TODO)
 ;
-L063D:  LD   HL,(181AH) 
+L063D:  LD   HL,(ZWINL) 
         DEC  HL 
         DEC  HL 
         LD   A,(HL) 
@@ -1507,19 +1559,23 @@ L0673:  LD   A,(DE)
         DEFM " " 
         DEFB 20H+80H 
         CALL OUTHL 
-L067E:  CALL INLINE 
-        LD   HL,(181AH) 
-        EX   DE,HL 
-        PUSH HL 
-        PUSH DE 
-        CALL INHEX 
-        EX   DE,HL 
-        POP  HL 
-        LD   A,(HL) 
-        POP  HL 
-        CP   20H 
-        RET  Z 
-        LD   (HL),D 
+; dieses UP liest die Eingabezeile auf dem Monitor,
+; wandelt den eingegebenen ASCII-Wert (4 Stellen) in 
+; eine 16-bit HEX-Zahl und speichert die Eingabe
+; (wenn etwas eingegeben wurde) in (DE-1) und (DE)
+INHEX4: CALL INLINE 
+        LD   HL,(ZWINL)   ;Adresse Zeilenanfang in HL
+        EX   DE,HL
+        PUSH HL           ;DE = Speicheradresse + 1
+        PUSH DE           ;Adresse BS-Zeilenanfang
+        CALL INHEX        ;Umwandlung ASCII --> HEX
+        EX   DE,HL        ;HEX-Ergebnis jetzt in DE
+        POP  HL           ;Adresse BS-Zeilenanfang
+        LD   A,(HL)       ;1. Zeichen ASCII-Eingabe vom BS lesen
+        POP  HL           ;HL = Speicheradresse + 1
+        CP   20H          ;Leerzeichen?
+        RET  Z            ;es wurde kein Wert eingegeben
+        LD   (HL),D       ;eingegebenen Wert speichern
         DEC  HL 
         LD   (HL),E 
         RET 
@@ -1726,7 +1782,7 @@ L07D0:  RST  08H
         JR   Z,L0804 
         CP   20H 
         JR   C,L07CF 
-        LD   HL,01DEH 
+        LD   HL,01DEH     ;Adresse Kommandozeicheneingabe
         JR   L0800 
 ;
 ;
@@ -1755,7 +1811,7 @@ L0807:  CP   42H
         DEFM " B" 
         DEFB 50H+80H      ;"P+80H 
         CALL INLINE 
-        LD   HL,(181AH) 
+        LD   HL,(ZWINL) 
         LD   A,(HL) 
         CP   20H 
         JR   Z,L07D0 
@@ -1829,7 +1885,7 @@ L0873:  LD   HL,(ARG2)
 L088E:  RST  18H 
         DEFM " (A)" 
         DEFB 20H+80H 
-L0894:  LD   (1800H),DE 
+L0894:  LD   (KURPOS),DE 
         LD   B,C 
 L0899:  RST  18H 
         DEFB 09H,09H,09H+80H 
@@ -1923,7 +1979,7 @@ L0932:  DEC  HL
         JR   NZ,L0929 
         LD   C,08H 
 L0938:  CALL L04A4 
-        LD   DE,(1800H) 
+        LD   DE,(KURPOS) 
         PUSH HL 
         LD   HL,17BFH 
         SBC  HL,DE 
@@ -2094,17 +2150,17 @@ L0A3C:  RST  18H
         RET 
 ;
 ;
-; Funktion "H" --> I/O (TODO)
+; Funktion "H" --> I/O-Byte anzeigen / setzen
 ;
         DEFB 00H,09H,48H,0DH 
         RST  18H 
         DEFM " I/O Byte" 
         DEFB 20H+80H 
-        LD   DE,1821H     ;Speicherplatz vom I/O-Byte 
-        LD   A,(DE)       ;LD A,I/O-Byte
-        CALL OUTHEX 
+        LD   DE,IOBYTE    ;Speicherplatz vom I/O-Byte 
+        LD   A,(DE)
+        CALL OUTHEX       ;Bildschirmausgabe I/O-Byte
         INC  DE 
-        JP   L067E 
+        JP   INHEX4       ;Eingabe pruefen und I/O-Byte setzen
 ;
 L0A5B:  CALL L0404 
         JP   L0A31 
@@ -2725,7 +2781,7 @@ V24OUT: PUSH HL
         PUSH DE 
         PUSH BC 
         PUSH AF 
-        LD   HL,1820H     ;V.24-Kontrollregister
+        LD   HL,V24REG    ;V.24-Kontrollregister
         LD   BC,7FFFH 
         BIT  4,(HL)
         JR   NZ,V24OU1    ;--> 7 Datenbit, ungerade Paritaet
@@ -2776,7 +2832,7 @@ V24OU8: OUT  (P08),A      ;Ausgabe an A1 (TxD)
 ;
         DEFB 00H,09H,3AH,0DH 
         CALL ARGLD        ;ARG1-->HL ARG2-->DE ARG3-->BC
-		CALL L07F1
+        CALL L07F1
         RST  18H 
         DEFB 20H+80H 
         EX   DE,HL 
@@ -2821,10 +2877,10 @@ V24OU8: OUT  (P08),A      ;Ausgabe an A1 (TxD)
         DEFB 00H,09H,55H,0DH;
         LD   HL,(ARG1) 
         LD   C,L 
-        LD   DE,(181AH) 
+        LD   DE,(ZWINL) 
         INC  DE 
         CALL L07F7 
-L0E90:  LD   (1800H),DE 
+L0E90:  LD   (KURPOS),DE 
         RST  18H 
         DEFB 2AH+80H      ;"*+80H 
         IN   A,(C) 
@@ -2876,20 +2932,20 @@ PROGX3: OUT  (0C1H),A     ;HWT EPROM + LED
 ; UP 'Joy', Abfrage Joystick 1
 ; ----------------------------
 ;
-L0EB4:  PUSH BC 
-        IN   A,(P05) 
+UPJOY:  PUSH BC           ;Adresse 0EB4H
+        IN   A,(P05)      ;PIO1 Port B lesen
         LD   C,A 
-        RES  1,A 
-        OUT  (P05),A 
-        IN   A,(P04) 
+        RES  1,A          ;Joystick aktivieren
+        OUT  (P05),A      ;PIO1 Port B schreiben
+        IN   A,(P04)      ;PIO1 Port A lesen
         LD   B,A 
-        LD   A,C 
-        OUT  (P05),A 
-        LD   A,B 
+        LD   A,C          ;Joystick deaktivieren
+        OUT  (P05),A      ;PIO1 Port B schreiben
+        LD   A,B          ;Joystick-Wert in A
         NOP 
-        AND  1FH 
+        AND  1FH          ;nur 5 Bit + Z-Flag setzen
         POP  BC 
-        RET 
+        RET
 ;
 ;
 ; Funktion "?" --> Help
@@ -2923,21 +2979,21 @@ L0ED9:  XOR  A
 ; weitere Bearb. fuer RST 10H   (Ausgabekanal, normal Bildschirm)
 ; ---------------------------
 ;
-RST10A: LD   HL,1820H 
-        BIT  7,(HL) 
-        JR   NZ,RST10B 
-        AND  7FH 
-RST10B: INC  HL 
-        CP   18H 
-        JR   Z,L0F07 
-        CP   19H 
-        JR   NZ,RST10C 
+RST10A: LD   HL,V24REG    ;V.24-Kontrollregister
+        BIT  7,(HL)       ;V.24-Ausgabe mit 8 Bit?
+        JR   NZ,RST10B    ;ja
+        AND  7FH          ;nein --> 8. Bit ruecksetzen
+RST10B: INC  HL           ;HL --> I/O-Byte
+        CP   18H          ;Ctrl-X schaltet zusaetzlich V.24 ein
+        JR   Z,RST10C 
+        CP   19H          ;Ctrl-Y schaltet Ein/Ausgabe auf Standard
+        JR   NZ,RST10D 
         LD   (HL),11H 
         DEFB 21H          ;LD HL,0EECBH + nxt. Befehl ueberspringen!!!
-L0F07:  SET 5,(HL)        ;Code = 0CBH, 0EEH
-        JR   RST10D 
+RST10C: SET 5,(HL)        ;Code = 0CBH, 0EEH
+        JR   RST10E 
 ;
-RST10C: BIT  4,(HL) 
+RST10D: BIT  4,(HL) 
         CALL NZ,FKT33     ;Funktion auf Adresse 0033H - Ausgabe ueber Bildschirm
         BIT  5,(HL) 
         CALL NZ,V24OUT    ;V.24 Ausgabe
@@ -2945,7 +3001,7 @@ RST10C: BIT  4,(HL)
         CALL NZ,0FFFFH 
         BIT  7,(HL) 
         CALL NZ,18F3H     ;Sprung zum UP User-Ausgabe
-RST10D: POP  AF 
+RST10E: POP  AF 
         POP  HL 
         RET 
 ;
@@ -2955,14 +3011,14 @@ RST10D: POP  AF
         DEFB 00H,09H,3DH,0DH 
         RST  18H 
         DEFB 0BH,06H+80H 
-        LD   HL,(1800H) 
+        LD   HL,(KURPOS) 
         RST  18H 
         DEFB 0EH 
         DEFM "0059" 
         DEFB 2FH+80H      ;"/+80H 
         RST  08H 
         RST  10H 
-        LD   (1800H),HL 
+        LD   (KURPOS),HL 
         CP   38H 
         RET  NC 
         CP   30H 
