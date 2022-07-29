@@ -1,6 +1,6 @@
 ; ************************************************************
 ; *                                                          *
-; *  MONITOR 10/88 fuer den AC 1     Version vom 28.07.2022  *
+; *  MONITOR 10/88 fuer den AC 1     Version vom 29.07.2022  *
 ; *                                                          *
 ; ************************************************************
 ;
@@ -65,14 +65,18 @@ MONI88  EQU  1       ;Monitor 10/88 - Originalversion 1988
         .CREF
         .Z80
 ;
+KURSOR  EQU  7FH          ;Kursorsymbol
+;
 KURPOS  EQU  1800H        ;Zwischenspeicher Kursor
 ZWINL   EQU  181AH        ;Zwischenspeicher 'Inline'
 COLOR   EQU  181FH        ;Merkzelle fuer das Farbbyte im RAM
 V24REG  EQU  1820H        ;V.24-Kontrollregister
 IOBYTE  EQU  1821H        ;Merkzelle fuer das I/O-Byte
-ARG1    EQU  185BH
-ARG2    EQU  185DH
-ARG3    EQU  185FH
+TASCOD  EQU  1822H        ;Tastencode der zuletzt gedrückten Taste
+HREGIN  EQU  1857H        ;Hilfsregister UP 'INLINE'
+ARG1    EQU  185BH        ;Zwischenspeicher Argument 1
+ARG2    EQU  185DH        ;Zwischenspeicher Argument 2
+ARG3    EQU  185FH        ;Zwischenspeicher Argument 3
 ;
 P00     EQU  00H          ;CTC
 P04     EQU  04H          ;PIO 1 - Port A (Daten)
@@ -118,8 +122,8 @@ RST10:  PUSH HL
         JP   RST10A 
 ;
 ;
-; RST 18H - Zeichenkettenausgabe bis incl. des Byte, wo bit 7 gesetzt
-; -------------------------------------------------------------------
+; RST 18H - Zeichenkettenausgabe bis incl. des Bytes, wo Bit 7 gesetzt ist
+; ------------------------------------------------------------------------
 ;
 L0018:  JP   1808H        ;Sprungtabelle 1808H
 ;
@@ -198,7 +202,7 @@ FKT33:  PUSH AF
 ;
 ; INIT3 nach Reset
 ;
-INIT3:  LD   A,02H 
+INIT3:  LD   A,02H        ;HWT vom Interruptvektor
         LD   I,A 
         LD   HL,TABIO     ;Tabelle fuer IO-Befehle
         LD   B,11H        ;insgesamt 17 Befehle an versch. Ports
@@ -282,28 +286,29 @@ RST08:  PUSH HL
         LD   A,(IOBYTE)   ;LD A,I/O-Byte 
         RRCA              ;Rotiere A-Register rechts
         JR   NC,NOTAST    ;anderes Eingabegeraet (keine Tastatur)
-        LD   HL,1857H
+        LD   HL,HREGIN    ;Hilfsregister UP 'INLINE'
         LD   B,(HL) 
         LD   (HL),18H 
-L00B3:  CALL UPTAST 
-        JR   Z,L00BD 
-        DEC  B 
-        JR   NZ,L00B3 
+RST08A: CALL UPTAST       ;Taste gedrueckt?
+        JR   Z,RST08B     ;nein
+        DEC  B            ;ja
+        JR   NZ,RST08A    ;Zeitschleife, Entprellung
         LD   (HL),01H 
-L00BD:  LD   HL,(KURPOS) 
-        LD   C,(HL) 
-L00C1:  LD   (HL),7FH 
-L00C3:  CALL UPTAST 
-        JR   NZ,PIEP      ;Tasten-Piep
+RST08B: LD   HL,(KURPOS) 
+        LD   C,(HL)       ;bisherigen BS-Wert in C merken
+RST08C: LD   (HL),KURSOR  ;Kursorsymbol = 7FH setzen
+RST08D: CALL UPTAST       ;Taste gedrueckt?
+        JR   NZ,PIEP      ;ja --> Tasten-Piep --> und RET
         LD   A,48H 
-L00CA:  DEC  A 
-        JR   NZ,L00CA 
-        DJNZ L00C3 
-        LD   A,C 
+RST08E: DEC  A 
+        JR   NZ,RST08E    ;Zeitschleife A
+        DJNZ RST08D       ;Zeitschleife B
+        LD   A,C          ;bisheriger BS-Wert nach A
         CP   (HL) 
-        JR   Z,L00C1 
+        JR   Z,RST08C     ;Kursor setzen
         LD   (HL),C 
-        JR   L00C3 
+        JR   RST08D       ;bisherigen BS-Wert setzen
+;
 NOTAST: RRCA              ;Rotiere A-Register rechts
         JR   NC,NOV24     ;anderes Eingabegeraet (kein V.24)
 ;
@@ -697,7 +702,7 @@ TUELU1: PUSH BC
 ;
 ;
 ; UP 'Ton', Reg, B = Tonlaenge, C = Tonhoehe
-; ----------------------------------------
+; ------------------------------------------
 ;
 UPTON:  PUSH AF 
 L0288:  IN   A,(P05) 
@@ -715,46 +720,50 @@ L0290:  DEC  A
 ;
 ; UP 'Taste', testet Tastaturstatus
 ; ---------------------------------
+; kehrt bei gedrückter Taste nach 18 ms mit dem Code zum Akku zurück, 
+; keine Taste --> Rückkehr mit gesetzten Z-Flag und A=0
+; Code steht auch in 1822H
 ;
 UPTAST: PUSH BC 
-        CALL L02C3 
-        JR   Z,L02BD 
+        CALL UPTAS4       ;Tastatur abfragen
+        JR   Z,UPTAS3     ;Taste nicht gedrueckt
         LD   B,0CH 
-        LD   C,A 
-L02A0:  CALL L02C3 
+        LD   C,A          ;Tastencode in C
+UPTAS1: CALL UPTAS4       ;Entprellung
         CP   C 
-        JR   NZ,L02BD 
-        DJNZ L02A0 
+        JR   NZ,UPTAS3    ;Taste nicht (mehr) gedrueckt
+        DJNZ UPTAS1 
+;
 ; Einbau der Grafiktaste (nur Originaltastatur)                   
 ; ----------------------                                                                
-; Der einpolige rastende Schalter kommt an PIO 1/B2 und Masse     
-; Von PIO 1/B2 ein R = 330 Ohm und LED VQA 13 nach 5P an-         
-; schliessen. Die LED leuchtet bei eingeschalteter Grafiktas-      
-; tatur. Aenderung im Monitor notwendig!                            
-; Adresse 02A9 Datenbyte FF in 21 aendern.                         
+; Der einpolige rastende Schalter kommt an PIO 1/B2 und Masse.    
+; Von PIO 1/B2 einen R = 330 Ohm und LED VQA 13 nach 5P an-         
+; schliessen. Die LED leuchtet bei eingeschalteter Grafiktastatur.                          
+; Adresse 02A9 Datenbyte FF in 21 aendern. 
+;                        
         CP   21H          ;Grafiktaste wird verwendet
-        JR   C,L02BB 
-        IN   A,(P05) 
-        BIT  2,A 
-        LD   A,C 
-        JR   NZ,L02BB 
-        ADD  A,80H 
+        JR   C,UPTAS2     ;keine Grafik, wenn Tastencode < 21H ist
+        IN   A,(P05)      ;PIO1 Port B lesen
+        BIT  2,A          ;Bit 2 = Grafiktaste
+        LD   A,C          ;Tastencode nach A
+        JR   NZ,UPTAS2    ;Grafiktaste nicht gedrueckt
+        ADD  A,80H        ;7. Bit setzen
         CP   0E0H
-        JR   C,L02BB 
-        SUB  60H 
-L02BB:  INC  B 
-        DEFB 06H          ;LD   B,0AFH (incl. naechsten Befehl!!!)
-L02BD:  XOR  A
+        JR   C,UPTAS2     ;Kleinbuchstaben gehen nicht
+        SUB  60H          ;Grafik-Wertebereich = 41H...7FH
+UPTAS2: INC  B 
+        DEFB 06H          ;LD  B,0AFH (incl. naechsten Befehl!!!)
+UPTAS3: XOR  A            ;Einsprungpunkt "Taste nicht gedrueckt"
         POP  BC 
-        LD   (1822H),A    ;Tastencode der zuletzt gedrueckten Taste
+        LD   (TASCOD),A   ;Tastencode der zuletzt gedrueckten Taste
         RET 
 ;
-L02C3:  LD   A,48H 
-L02C5:  DEC  A 
-        JR   NZ,L02C5 
-        IN   A,(P04) 
-        BIT  7,A 
-        RES  7,A 
+UPTAS4: LD   A,48H        ;Zeitschleife
+UPTAS5: DEC  A 
+        JR   NZ,UPTAS5 
+        IN   A,(P04)      ;PIO1 Port A lesen
+        BIT  7,A          ;Taste gedrueckt?
+        RES  7,A          ;7. Bit ruecksetzen
         RET 
 ;
 ;
@@ -779,7 +788,7 @@ L02C5:  DEC  A
 ; Codeschnipsel fuer Farb-Initialisierung
 ;
 FARBIN: CALL FINIT        ;Farb-Initialisierung 
-        JR   UPTAST 
+        JR   UPTAST       ;Taste gedrueckt?
 ;
 ;
 ; Funktion "6" --> PIO2-Karte: Bank 1 einschalten
@@ -802,7 +811,7 @@ FKT0:   OUT  (P0F),A
 ; Codeschnipsel fuer Farb-Initialisierung
 ;
 FARBIN: CALL FINIT        ;Farb-Initialisierung 
-        JR   UPTAST 
+        JR   UPTAST       ;Taste gedrueckt?
 ;
 ;
 ; Funktion "6" --> PIO2-Karte: Bank 1 einschalten
@@ -1538,6 +1547,7 @@ L0659:  CP   (HL)
 ;
         DEFB 0FFH         ;Platzhalter 1 Byte
 ;
+;
 ; ??? (TODO)
 ;
 L0665:  POP  HL 
@@ -1700,6 +1710,7 @@ RUNBP:  CALL CPURSA       ;UP, CPU-Register ausraeumen nach RSA
         JR   EINZ1 
 ;
         DEFS 3,0FFH       ;Platzhalter 3 Byte
+;
 ;
 ; ??? (TODO)
 ;
@@ -2663,7 +2674,7 @@ L0D3B:  DEC  A
         EX   DE,HL 
         RET 
 ;
-TASTE:  CALL UPTAST 
+TASTE:  CALL UPTAST       ;Taste gedrueckt?
         JR   L0DAD 
 ;
 L0D52:  IN   A,(P05) 
@@ -2875,27 +2886,31 @@ V24OU8: OUT  (P08),A      ;Ausgabe an A1 (TxD)
 ; Funktion "U" --> Port lesen (TODO)
 ;
         DEFB 00H,09H,55H,0DH;
-        LD   HL,(ARG1) 
-        LD   C,L 
-        LD   DE,(ZWINL) 
+        LD   HL,(ARG1)
+        LD   C,L          ;Portnummer in C
+        LD   DE,(ZWINL)   ;Bildschirm-Adresse
         INC  DE 
-        CALL L07F7 
-L0E90:  LD   (KURPOS),DE 
+        CALL L07F7        ;CALL INHEX
+FKTU1:  LD   (KURPOS),DE  ;Kursor positionieren
         RST  18H 
         DEFB 2AH+80H      ;"*+80H 
         IN   A,(C) 
-        CALL OUTHEX 
-L0E9B:  CALL L07FA 
-        JR   Z,L0E9B 
-        CP   0D1H
-        RET  Z 
-        JR   L0E90 
+        CALL OUTHEX       ;Wert ausgeben
+FKTU2:  CALL L07FA        ;CALL TASTE
+        JR   Z,FKTU2      ;warten, bis Taste gedrueckt
+        CP   0D1H         ;"Q"?
+        RET  Z            ;ja --> Ende
+        JR   FKTU1 
+;
+;
+; ??? (TODO)
 ;
 L0EA5:  LDI 
         DEC  DE 
         DEC  DE 
         JP   PE,L0EA5 
         RET 
+;
 ;
 ;
         IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
@@ -2982,7 +2997,7 @@ L0ED9:  XOR  A
 RST10A: LD   HL,V24REG    ;V.24-Kontrollregister
         BIT  7,(HL)       ;V.24-Ausgabe mit 8 Bit?
         JR   NZ,RST10B    ;ja
-        AND  7FH          ;nein --> 8. Bit ruecksetzen
+        AND  7FH          ;nein --> 7. Bit ruecksetzen
 RST10B: INC  HL           ;HL --> I/O-Byte
         CP   18H          ;Ctrl-X schaltet zusaetzlich V.24 ein
         JR   Z,RST10C 
@@ -3077,6 +3092,7 @@ L0F6C:  LD   BC,0800H
 ;
         IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
 ;
+;
 ; ??? (TODO)
 ;
 L0F94:  JR   L0F6C
@@ -3155,6 +3171,7 @@ L0FA1:  LD   A,(DE)
 ;
         ENDIF             ;Monitor 10/88 - Originalversion 1988
         IFDEF MONI88A     ;Monitor 10/88 - Originalversion mit Anpassungen
+;
 ;
 ; ??? (TODO)
 ;
