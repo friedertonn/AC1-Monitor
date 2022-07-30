@@ -1,6 +1,6 @@
 ; ************************************************************
 ; *                                                          *
-; *  MONITOR 10/88 fuer den AC 1     Version vom 29.07.2022  *
+; *  MONITOR 10/88 fuer den AC 1     Version vom 30.07.2022  *
 ; *                                                          *
 ; ************************************************************
 ;
@@ -17,7 +17,7 @@
 ; - Backspace/DEL mit 7FH (Adr. 0323H)
 ; - RAM loeschen mit Kommando "p" von 1858H bis 0FEFFH
 ; - die Monitorkommandos "X", "b" und "r" wurden entfernt
-; - neues Monitorkommando "X": Start der AC1-2010 ROM-Bank
+; - neues Monitorkommando "X": Start der AC1 ROM-Bank
 ;
 ; MONI11 - Korrekturen an der BWS-CPLD-Version 2011:
 ; - Fehler beim Monitorkommando "7" fuer die PIO2-Karte:
@@ -78,10 +78,18 @@ ARG1    EQU  185BH        ;Zwischenspeicher Argument 1
 ARG2    EQU  185DH        ;Zwischenspeicher Argument 2
 ARG3    EQU  185FH        ;Zwischenspeicher Argument 3
 ;
-P00     EQU  00H          ;CTC
+P00     EQU  00H          ;CTC Kanal 0
+P01     EQU  01H          ;CTC Kanal 1
+P02     EQU  02H          ;CTC Kanal 2
+P03     EQU  03H          ;CTC Kanal 3
 P04     EQU  04H          ;PIO 1 - Port A (Daten)
 P05     EQU  05H          ;PIO 1 - Port B (Daten)
+P06     EQU  06H          ;PIO 1 - Port A (Control)
+P07     EQU  07H          ;PIO 1 - Port B (Control)
 P08     EQU  08H          ;PIO 2 - Port A (Daten)
+P09     EQU  09H          ;PIO 2 - Port B (Daten)
+P0A     EQU  0AH          ;PIO 2 - Port A (Control)
+P0B     EQU  0BH          ;PIO 2 - Port B (Control)
 P0E     EQU  0EH          ;ROM-Bank: EPROM-Einblendung
 P0F     EQU  0FH          ;PIO2-Karte: EPROM-Einblendung
 P14     EQU  14H          ;Modul 1: Konfigurationsregister
@@ -239,13 +247,13 @@ INIT5:  LD   (HL),0FFH    ;HL=1800H
 ; NMI-Befehl, Programmunterbrechung
 ; ---------------------------------
 ;
-        JP   1817H        ;Sprungtabelle 1817H
+L0066:  JP   1817H        ;Sprungtabelle 1817H
 ;
 ;
 INIT6:  CP   58H          ;Taste "X" gedrueckt?
 JUMPX:  JP   Z,PROGX      ;Sprung zum Programmpaket X
 INIT7:  XOR  A 
-        OUT  (P14),A      ;Modul 1: zuruecksetzen
+        OUT  (P14),A      ;Modul 1: Konfigurationsregister ruecksetzen
         RST  18H 
         DEFB 0CH,0DH,0FH,0FH 
         IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
@@ -292,10 +300,10 @@ RST08:  PUSH HL
 RST08A: CALL UPTAST       ;Taste gedrueckt?
         JR   Z,RST08B     ;nein
         DEC  B            ;ja
-        JR   NZ,RST08A    ;Zeitschleife, Entprellung
+        JR   NZ,RST08A    ;Tasten-Entprellung
         LD   (HL),01H 
 RST08B: LD   HL,(KURPOS) 
-        LD   C,(HL)       ;bisherigen BS-Wert in C merken
+        LD   C,(HL)       ;bisheriges BS-Zeichen in C merken
 RST08C: LD   (HL),KURSOR  ;Kursorsymbol = 7FH setzen
 RST08D: CALL UPTAST       ;Taste gedrueckt?
         JR   NZ,PIEP      ;ja --> Tasten-Piep --> und RET
@@ -303,11 +311,11 @@ RST08D: CALL UPTAST       ;Taste gedrueckt?
 RST08E: DEC  A 
         JR   NZ,RST08E    ;Zeitschleife A
         DJNZ RST08D       ;Zeitschleife B
-        LD   A,C          ;bisheriger BS-Wert nach A
+        LD   A,C          ;bisheriges BS-Zeichen nach A
         CP   (HL) 
         JR   Z,RST08C     ;Kursor setzen
         LD   (HL),C 
-        JR   RST08D       ;bisherigen BS-Wert setzen
+        JR   RST08D       ;bisheriges BS-Zeichen setzen
 ;
 NOTAST: RRCA              ;Rotiere A-Register rechts
         JR   NC,NOV24     ;anderes Eingabegeraet (kein V.24)
@@ -705,15 +713,15 @@ TUELU1: PUSH BC
 ; ------------------------------------------
 ;
 UPTON:  PUSH AF 
-L0288:  IN   A,(P05) 
-        RRA 
-        CCF 
-        RLA 
+UPTON1: IN   A,(P05) 
+        RRA               ;A0 --> CY
+        CCF               ;CY = !CY
+        RLA               ;CY --> A0
         OUT  (P05),A 
         LD   A,C 
-L0290:  DEC  A 
-        JR   NZ,L0290 
-        DJNZ L0288 
+UPTON2: DEC  A 
+        JR   NZ,UPTON2 
+        DJNZ UPTON1 
         POP  AF 
         RET 
 ;
@@ -741,16 +749,16 @@ UPTAS1: CALL UPTAS4       ;Entprellung
 ; schliessen. Die LED leuchtet bei eingeschalteter Grafiktastatur.                          
 ; Adresse 02A9 Datenbyte FF in 21 aendern. 
 ;                        
-        CP   21H          ;Grafiktaste wird verwendet
+        CP   21H          ;21H --> Grafiktaste wird verwendet
         JR   C,UPTAS2     ;keine Grafik, wenn Tastencode < 21H ist
         IN   A,(P05)      ;PIO1 Port B lesen
         BIT  2,A          ;Bit 2 = Grafiktaste
         LD   A,C          ;Tastencode nach A
-        JR   NZ,UPTAS2    ;Grafiktaste nicht gedrueckt
+        JR   NZ,UPTAS2    ;Grafiktaste nicht aktiviert
         ADD  A,80H        ;7. Bit setzen
         CP   0E0H
-        JR   C,UPTAS2     ;Kleinbuchstaben gehen nicht
-        SUB  60H          ;Grafik-Wertebereich = 41H...7FH
+        JR   C,UPTAS2     ;Grafik, wenn Tastencode < 0E0H ist
+        SUB  60H          ;sonst Grafik-Wertebereich = 80H...9FH
 UPTAS2: INC  B 
         DEFB 06H          ;LD  B,0AFH (incl. naechsten Befehl!!!)
 UPTAS3: XOR  A            ;Einsprungpunkt "Taste nicht gedrueckt"
@@ -840,16 +848,19 @@ ZGUMS:  IN   A,(P05)
 ;
 ;
         IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
-        DEFB 5BH,07H      ;Interruptvektor CTC --> 075BH ???
+        DEFB 5BH          ;Interruptvektor CTC Kanal 0 --> GETCO
+        DEFB 07H          ;Interruptvektor CTC Kanal 1 --> nicht genutzt
         DEFS 6,0FFH       ;Platzhalter 6 Byte
         ENDIF
         IFDEF MONI88A     ;Monitor 10/88 - Originalversion mit Anpassungen
-        DEFB 5BH,07H      ;Interruptvektor CTC --> 075BH ???
+        DEFB 5BH          ;Interruptvektor CTC Kanal 0 --> GETCO
+        DEFB 07H          ;Interruptvektor CTC Kanal 1 --> nicht genutzt
         DEFS 6,0FFH       ;Platzhalter 6 Byte
         ENDIF
         IFDEF MONI11      ;Monitor 10/88 - BWS-CPLD-Version 2011
 ;
-        DEFB 5BH,5BH      ;Interruptvektor CTC --> 5B5BH ???
+        DEFB 5BH          ;Interruptvektor CTC Kanal 0 --> GETCO
+        DEFB 5BH          ;Interruptvektor CTC Kanal 1 --> GETCO
 ;
 ;
 ; RAM von 0000H bis 0FFFH einschalten
@@ -860,7 +871,8 @@ ALTMO:  LD   (0FFFEH),HL  ;wird von Fkt. "Y" angesprungen
         ENDIF
         IFDEF MONI11A     ;Monitor 10/88 - BWS-CPLD-Version mit Anpassungen
 ;
-        DEFB 5BH,5BH      ;Interruptvektor CTC --> 5B5BH ???
+        DEFB 5BH          ;Interruptvektor CTC Kanal 0 --> GETCO
+        DEFB 5BH          ;Interruptvektor CTC Kanal 1 --> GETCO
 ;
 ;
 ; RAM von 0000H bis 0FFFH einschalten
@@ -1057,7 +1069,7 @@ INSE1:  CP   E
 ;
 ; Sprungverteiler (NWT) fuer BS-Befehle: (HWT = 03H)
 ;
-BS03C7: DEFB 2EH          ;00H --> Fkt. verlassen
+BS03C7: DEFB 2EH          ;00H --> Fkt. verlassen (BSEND3)
         DEFB 0A3H         ;01H --> Home: Kursor nach oben links (BS03A3)
         DEFB 6BH          ;02H --> Bildschirm ab Kursor loeschen (BS036B)
         DEFB 75H          ;03H --> Zeile ab Kursorposition loeschen (BS0375)
@@ -1674,25 +1686,25 @@ JUMP3:  LD   HL,2000H
         JP   RSACPU       ;UP, CPU-Register einraeumen von RSA
 ;
 ;
-; Funktion "E" --> Einzelschritt (TODO)
+; Funktion "E" --> Einzelschritt
 ;
         DEFB 00H,09H,45H,0DH 
-        LD   A,(DE) 
-        CP   3AH 
-        JR   Z,L072B 
-        LD   HL,(ARG1) 
+        LD   A,(DE)       ;DE = Befehszeile
+        CP   3AH          ;Eingabe ":"?
+        JR   Z,EINZ2      ;ja, Befehlsabarbeitung ab PC
+        LD   HL,(ARG1)    ;nein, Befehlsabarbeitung ab ARG1
 EINZ1:  LD   (1875H),HL 
-L072B:  LD   SP,(1877H) 
-        LD   HL,(1875H) 
+EINZ2:  LD   SP,(1877H)   ;RSA: SP
+        LD   HL,(1875H)   ;RSA: PC
         PUSH HL 
         CALL RSACPU       ;UP, CPU-Register einraeumen von RSA 
         PUSH AF 
-        LD   A,87H 
+        LD   A,87H        ;CTC Kanal 0: Interrupt ein, Zeitgeber, VT=16
         OUT  (P00),A 
-        LD   A,02H 
+        LD   A,02H        ;CTC Kanal 0: Teiler=2
         OUT  (P00),A 
         EI 
-        LD   A,(BC) 
+        LD   A,(BC)       ;Zeit verbraten bis zum Interrupt?
         POP  AF 
         RET 
 ;
@@ -2279,15 +2291,24 @@ UPRAMT: LD   A,(HL)
 ;
 ; Tabelle fuer IO-Befehle (17x Port, Befehl, Port, Befehl, ...)
 ;
-TABIO:  DEFB 00H,0F8H,01H,37H
-        DEFB 01H,4EH,02H,47H
-        DEFB 02H,32H,0BH,0CFH
-        DEFB 0BH,00H,0AH,0CFH
-        DEFB 0AH,0C5H,08H,0AH
-        DEFB 06H,0CFH,06H,0FFH
-        DEFB 06H,07H,07H,0CFH
-        DEFB 07H,84H,07H,07H
-        DEFB 14H,00H,0FFH
+TABIO:  DEFB P00,0F8H     ;CTC Interruptvektor NWT = 0F8H
+        DEFB P01,37H      ;CTC Kanal 1: kein Interrupt, Zeitgeber, VT=256
+        DEFB P01,4EH      ;CTC Kanal 1: Teiler=78 --> 100 Hz (bei 2 MHz CPU)
+        DEFB P02,47H      ;CTC Kanal 2: kein Interrupt, Zaehlermode
+        DEFB P02,32H      ;CTC Kanal 2: Teiler=50 --> 2 Hz (bei 2 MHz CPU)
+        DEFB P0B,0CFH     ;PIO2 Port B Ctrl: Mode 3
+        DEFB P0B,00H      ;PIO2 Port B Ctrl: alles Ausgaenge
+        DEFB P0A,0CFH     ;PIO2 Port A Ctrl: Mode 3
+        DEFB P0A,0C5H     ;PIO2 Port A Ctrl: A0, A2, A6, A7 sind Eingaenge
+        DEFB P08,0AH      ;PIO2 Port A Data: A1 und A3 auf High setzen
+        DEFB P06,0CFH     ;PIO1 Port A Ctrl: Mode 3
+        DEFB P06,0FFH     ;PIO1 Port A Ctrl: alles Eingaenge (von Tastatur)
+        DEFB P06,07H      ;PIO1 Port A Ctrl: kein Interrupt
+        DEFB P07,0CFH     ;PIO1 Port B Ctrl: Mode 3
+        DEFB P07,84H      ;PIO1 Port B Ctrl: B7 (TB in) und B2 (Grafikt.) sind Eingaenge
+        DEFB P07,07H      ;PIO1 Port B Ctrl: kein Interrupt
+        DEFB P14,00H      ;Modul 1: Konfigurationsregister ruecksetzen
+        DEFB 0FFH
 ;
 ;
 ; Funktion "K" --> Kassette save (TODO)
