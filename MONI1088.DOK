@@ -714,7 +714,7 @@ Sprungverteiler
  07F4       INLINE       (0128)                                 
  07F7       INHEX        (0172)                                 
  07FA       TASTE        (0297)                                 
- 07FD       Betco        (01DE)                                 
+ 07FD       GETCO        (01DE)                                 
  0AD8       Tabelle Perpherie                                   
  0B90       UP 'Zeitschleife 18 ms' zur Tastaturentprellung      
  0EB4       UP 'Joy'. Abfrage Joystick 1,keine Taste Z - Flag    
