@@ -1,6 +1,6 @@
 ; ************************************************************
 ; *                                                          *
-; *  MONITOR 10/88 fuer den AC 1     Version vom 30.07.2022  *
+; *  MONITOR 10/88 fuer den AC 1     Version vom 09.08.2022  *
 ; *                                                          *
 ; ************************************************************
 ;
@@ -18,6 +18,7 @@
 ; - RAM loeschen mit Kommando "p" von 1858H bis 0FEFFH
 ; - die Monitorkommandos "X", "b" und "r" wurden entfernt
 ; - neues Monitorkommando "X": Start der AC1 ROM-Bank
+; - PIO2 belegt die I/O-Adressen 18H bis 1BH
 ;
 ; MONI11 - Korrekturen an der BWS-CPLD-Version 2011:
 ; - Fehler beim Monitorkommando "7" fuer die PIO2-Karte:
@@ -86,10 +87,18 @@ P04     EQU  04H          ;PIO 1 - Port A (Daten)
 P05     EQU  05H          ;PIO 1 - Port B (Daten)
 P06     EQU  06H          ;PIO 1 - Port A (Control)
 P07     EQU  07H          ;PIO 1 - Port B (Control)
+IFDEF MONI88A             ;MONI88A hat PIO2 I/O-Adr. 18H...1BH
+P08     EQU  18H          ;PIO 2 - Port A (Daten)
+P09     EQU  19H          ;PIO 2 - Port B (Daten)
+P0A     EQU  1AH          ;PIO 2 - Port A (Control)
+P0B     EQU  1BH          ;PIO 2 - Port B (Control)
+ELSE                      ;Original: PIO2 I/O-Adr. 08H...0BH
 P08     EQU  08H          ;PIO 2 - Port A (Daten)
 P09     EQU  09H          ;PIO 2 - Port B (Daten)
 P0A     EQU  0AH          ;PIO 2 - Port A (Control)
 P0B     EQU  0BH          ;PIO 2 - Port B (Control)
+ENDIF
+
 P0E     EQU  0EH          ;ROM-Bank: EPROM-Einblendung
 P0F     EQU  0FH          ;PIO2-Karte: EPROM-Einblendung
 P14     EQU  14H          ;Modul 1: Konfigurationsregister
@@ -909,14 +918,7 @@ FKT33D: LD   (HL),01H     ;nein
         JR   Z,ZGUMS 
         IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
         CP   5FH          ;Backspace/DEL mit 5FH
-        ENDIF
-        IFDEF MONI88A     ;Monitor 10/88 - Originalversion mit Anpassungen
-        CP   7FH          ;Backspace/DEL mit 7FH
-        ENDIF
-        IFDEF MONI11      ;Monitor 10/88 - BWS-CPLD-Version 2011
-        CP   7FH          ;Backspace/DEL mit 7FH
-        ENDIF
-        IFDEF MONI11A     ;Monitor 10/88 - BWS-CPLD-Version mit Anpassungen
+        ELSE              ;alle anderen Monitor-Versionen
         CP   7FH          ;Backspace/DEL mit 7FH
         ENDIF
         JR   Z,DELETE 
@@ -1215,16 +1217,9 @@ L047A:  RST  10H
         RET 
 ;
         IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
-L0487:  CP   5FH
-        ENDIF
-        IFDEF MONI88A     ;Monitor 10/88 - Originalversion mit Anpassungen
-L0487:  CP   7FH
-        ENDIF
-        IFDEF MONI11      ;Monitor 10/88 - BWS-CPLD-Version 2011
-L0487:  CP   7FH
-        ENDIF
-        IFDEF MONI11A     ;Monitor 10/88 - BWS-CPLD-Version mit Anpassungen
-L0487:  CP   7FH
+L0487:  CP   5FH          ;Backspace/DEL mit 5FH
+        ELSE              ;alle anderen Monitor-Versionen
+L0487:  CP   7FH          ;Backspace/DEL mit 7FH
         ENDIF
         JR   Z,L0494 
         CP   20H 
@@ -2887,14 +2882,7 @@ V24OU8: OUT  (P08),A      ;Ausgabe an A1 (TxD)
         LD   DE,1859H 
         IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
         LD   BC,0E7A7H    ;loeschen bis 0FFFFH
-        ENDIF
-        IFDEF MONI88A     ;Monitor 10/88 - Originalversion mit Anpassungen
-        LD   BC,0E6A7H    ;loeschen bis 0FEFFH
-        ENDIF
-        IFDEF MONI11      ;Monitor 10/88 - BWS-CPLD-Version 2011
-        LD   BC,0E6A7H    ;loeschen bis 0FEFFH
-        ENDIF
-        IFDEF MONI11A     ;Monitor 10/88 - BWS-CPLD-Version mit Anpassungen
+        ELSE              ;alle anderen Monitor-Versionen
         LD   BC,0E6A7H    ;loeschen bis 0FEFFH
         ENDIF
         LDIR 
