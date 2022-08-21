@@ -1,4 +1,4 @@
-*.mac linguist-detectable=true
+*.mac linguist-language=Assembly
 *.prn linguist-detectable=false
 *.dok linguist-detectable=false
-*.bin linguist-detectable=false
+EPROM/* linguist-vendored
