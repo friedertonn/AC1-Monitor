@@ -1,4 +1,8 @@
-*.mac linguist-language=Assembly
-*.prn linguist-detectable=false
-*.dok linguist-detectable=false
-EPROM/* linguist-vendored
+*.MAC text eol=crlf
+*.PRN text eol=crlf
+*.DOK text eol=crlf
+*.BIN binary
+MONI1088.MAC linguist-language=Assembly linguist-detectable
+MONI1088.PRN linguist-generated
+MONI1088.DOK linguist-documentation
+EPROM/* linguist-generated
