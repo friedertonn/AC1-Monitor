@@ -3,7 +3,7 @@
 
                                 ; ************************************************************
                                 ; *                                                          *
-                                ; *  MONITOR 10/88 fuer den AC 1     Version vom 03.08.2023  *
+                                ; *  MONITOR 10/88 fuer den AC 1     Version vom 29.08.2023  *
                                 ; *                                                          *
                                 ; ************************************************************
                                 ;
@@ -30,7 +30,6 @@
                                 ; MONI11A - zus. Aenderungen an der BWS-CPLD-Version 2011:
                                 ; - Farbbyte 0F9FH ist 4FH (= weiss auf blauem Hintergrund)
                                 ; - V.24-Kontrollregister (Adr. 023EH) wieder auf 02H
-                                ; - die Monitorkommandos "b" und "r" wurden entfernt
                                 ;
                                 ;
                                 ; ***************************************************
@@ -3586,9 +3585,12 @@
                                         JP   2000H        ;Programmstart von UserProg auf 2000H
                                 ;
                                 ;
-                                ; ehem. Funktion "r" --> Basic-Warmstart
+                                ; Funktion "r" --> Basic-Warmstart
                                 ;
-                                        DEFS 11,0FFH      ;Platzhalter 11 Byte
+                                        DEFB 00H,09H,72H,0DH 
+                                        LD   A,02H
+                                        OUT  (P14),A      ;Modul 1: EPROM mit Basic
+                                        JP   5FD5H        ;Sprung ins Basic-Programm
                                 ;
                                 ;
                                 ; Funktion "X" --> Programmpaket X
@@ -3597,9 +3599,12 @@
                                         JP   JUMPX
                                 ;
                                 ;
-                                ; ehem. Funktion "b" --> Basic-Kaltstart
+                                ; Funktion "b" --> Basic-Kaltstart
                                 ;
-                                        DEFS 10,0FFH      ;Platzhalter 10 Byte
+                                        DEFB 09H,62H,0DH  ;die 00H wird vom letzten Befehl genutzt
+                                        LD   A,02H
+                                        OUT  (P14),A      ;Modul 1: EPROM mit Basic
+                                        JP   5FCCH        ;Sprung ins Basic-Programm
                                 ;
                                         ENDIF             ;Monitor 10/88 - BWS-CPLD-Version mit Anpassungen
                                 ;
