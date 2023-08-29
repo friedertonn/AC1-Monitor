@@ -1,6 +1,6 @@
 ; ************************************************************
 ; *                                                          *
-; *  MONITOR 10/88 fuer den AC 1     Version vom 09.08.2022  *
+; *  MONITOR 10/88 fuer den AC 1     Version vom 03.08.2023  *
 ; *                                                          *
 ; ************************************************************
 ;
@@ -27,8 +27,7 @@
 ; MONI11A - zus. Aenderungen an der BWS-CPLD-Version 2011:
 ; - Farbbyte 0F9FH ist 4FH (= weiss auf blauem Hintergrund)
 ; - V.24-Kontrollregister (Adr. 023EH) wieder auf 02H
-; - die Monitorkommandos "X", "b" und "r" wurden entfernt
-; - neues Monitorkommando "X": Start der AC1-2010 ROM-Bank
+; - die Monitorkommandos "b" und "r" wurden entfernt
 ;
 ;
 ; ***************************************************
@@ -393,8 +392,9 @@ PROGX:  LD   A,01H
         JP   0E000H       ;Sprung zum Programmpaket X
         ENDIF
         IFDEF MONI11A     ;Monitor 10/88 - BWS-CPLD-Version mit Anpassungen
-PROGX:  JP   PROGX4       ;Sprung zur AC1-2010 ROM-Bank
-        DEFS 4,0FFH       ;Platzhalter 4 Byte
+PROGX:  LD   A,01H 
+        OUT  (P14),A      ;Modul 1: EPROM mit Programmpaket X
+        JP   0E000H       ;Sprung zum Programmpaket X
         ENDIF
 ;
 ;
@@ -3382,25 +3382,25 @@ FINIT1: PUSH AF
 ; Funktion "7" --> PIO2-Karte: Bank 2 einschalten
 ;
         DEFB 00H,09H,37H,0DH 
-        LD   A,20H        ;ehemals 10H, war falsch!! 
+        LD   A,20H        ;ehemals 10H, war falsch!!
         OUT  (P0F),A 
         JP   2000H        ;Programmstart von UserProg auf 2000H
 ;
 ;
-; Funktion "X" --> AC1-2010 ROM-Bank aufrufen (1900H bis 1FFFH)
+; ehem. Funktion "r" --> Basic-Warmstart
+;
+        DEFS 11,0FFH      ;Platzhalter 11 Byte
+;
+;
+; Funktion "X" --> Programmpaket X
 ;
         DEFB 00H,09H,58H,0DH 
-PROGX4: LD   A,0F6H
-        OUT  (P0E),A 
-        LD   DE,1900H 
-        LD   HL,0A000H
-        LD   BC,0700H 
-        LDIR 
-        LD   A,00H 
-        OUT  (P0E),A 
-        JP   1900H        ;Programmstart ROM-Bank
+        JP   JUMPX
 ;
-        DEFS 2,0FFH       ;Platzhalter 2 Byte
+;
+; ehem. Funktion "b" --> Basic-Kaltstart
+;
+        DEFS 10,0FFH      ;Platzhalter 10 Byte
 ;
         ENDIF             ;Monitor 10/88 - BWS-CPLD-Version mit Anpassungen
 ;
@@ -3420,4 +3420,4 @@ PROGX4: LD   A,0F6H
         .DEPHASE
         END
 ;
-
+
