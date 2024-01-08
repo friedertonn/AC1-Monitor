@@ -8,17 +8,19 @@ Die Dokumentation des Monitors (Befehle, Unterprogramme, Speicherzellen, Steuerc
 steht in der Datei MONI1088.DOK
 
 Zum Assemblieren des Quellcodes kann der Macroassembler M80.COM verwendet werden.
-
+```
 M80 = MONI1088/L
+```
 
 Das Linken des Programmcodes erfolgt mit dem Linker LINKMT.COM
-
+```
 LINKMT MONI1088
+```
 
 Der Programmcode befindet sich dann in der Datei MONI1088.COM, die auf einen EPROM gebrannt werden kann.
 Das Assemblerlisting steht in der Datei MONI1088.PRN
 
-![](https://www.ftonn.de/GIT-Projekte/AC1-Monitor/Monitor_10-88.gif)
+![AC1-Monitor](https://github.com/friedertonn/AC1-Monitor/blob/main/Fotos/Monitor_10-88.png?raw=true)
 
 Volker Pohlers hat diesen und weitere AC1-Monitore disassembliert und auf
 Github zur Verfügung gestellt: https://github.com/hcddr/ac1/tree/master/monitor 
