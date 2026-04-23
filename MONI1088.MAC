@@ -1,6 +1,6 @@
 ; ************************************************************
 ; *                                                          *
-; *  MONITOR 10/88 fuer den AC 1     Version vom 29.08.2023  *
+; *  MONITOR 10/88 fuer den AC 1     Version vom 23.04.2025  *
 ; *                                                          *
 ; ************************************************************
 ;
@@ -12,6 +12,7 @@
 ; - korrekte V.24-Baudraten fuer den Betrieb mit 2 MHz
 ;   (das bisherige Timing war fuer 2,4768 MHz ausgelegt)
 ;   Korrekturen auf Adr. 00F9H bis 00FBH und 0E39H bis 0E3BH
+; - ungenutzte CRC-Routine auf 0F94H entfernt
 ;
 ; MONI88A - zus. Aenderungen an der Originalversion 1988:
 ; - Backspace/DEL mit 7FH (Adr. 0323H)
@@ -23,6 +24,8 @@
 ; MONI11 - Korrekturen an der BWS-CPLD-Version 2011:
 ; - Fehler beim Monitorkommando "7" fuer die PIO2-Karte:
 ;   Adresse 0FD4H von 10H auf 20H korrigiert
+; - fehlerhafter Interruptvektor fuer CTC Kanal 0
+;   von 5B5BH auf 075BH korrigiert
 ;
 ; MONI11A - zus. Aenderungen an der BWS-CPLD-Version 2011:
 ; - Farbbyte 0F9FH ist 4FH (= weiss auf blauem Hintergrund)
@@ -71,7 +74,7 @@ ZWINL   EQU  181AH        ;Zwischenspeicher 'Inline'
 COLOR   EQU  181FH        ;Merkzelle fuer das Farbbyte im RAM
 V24REG  EQU  1820H        ;V.24-Kontrollregister
 IOBYTE  EQU  1821H        ;Merkzelle fuer das I/O-Byte
-TASCOD  EQU  1822H        ;Tastencode der zuletzt gedrückten Taste
+TASCOD  EQU  1822H        ;Tastencode der zuletzt gedrueckten Taste
 HREGIN  EQU  1857H        ;Hilfsregister UP 'INLINE'
 ARG1    EQU  185BH        ;Zwischenspeicher Argument 1
 ARG2    EQU  185DH        ;Zwischenspeicher Argument 2
@@ -99,7 +102,7 @@ ENDIF
 
 P0E     EQU  0EH          ;ROM-Bank: EPROM-Einblendung
 P0F     EQU  0FH          ;PIO2-Karte: EPROM-Einblendung
-P14     EQU  14H          ;Modul 1: Konfigurationsregister
+P14     EQU  14H          ;Modul-1: Konfigurationsregister
 P16     EQU  16H          ;RAM 0000H bis 0FFFH einblenden
 PF0     EQU  0F0H         ;COLOR-BWS
 ;
@@ -220,7 +223,7 @@ FKT33:  PUSH AF
 INIT3:  LD   A,02H        ;HWT vom Interruptvektor
         LD   I,A 
         LD   HL,TABIO     ;Tabelle fuer IO-Befehle
-        LD   B,11H        ;insgesamt 17 Befehle an versch. Ports
+        LD   B,17         ;insgesamt 17 Befehle an versch. Ports
 INIT4:  LD   C,(HL) 
         INC  HL 
         OUTI 
@@ -260,7 +263,7 @@ L0066:  JP   1817H        ;Sprungtabelle 1817H
 INIT6:  CP   58H          ;Taste "X" gedrueckt?
 JUMPX:  JP   Z,PROGX      ;Sprung zum Programmpaket X
 INIT7:  XOR  A 
-        OUT  (P14),A      ;Modul 1: Konfigurationsregister ruecksetzen
+        OUT  (P14),A      ;Modul-1: Konfigurationsregister ruecksetzen
         RST  18H 
         DEFB 0CH,0DH,0FH,0FH 
         IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
@@ -378,7 +381,7 @@ NOV24:  RRCA              ;Rotiere A-Register rechts
 ;
         IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
 PROGX:  LD   A,01H 
-        OUT  (P14),A      ;Modul 1: EPROM mit Programmpaket X
+        OUT  (P14),A      ;Modul-1: EPROM mit Programmpaket X
         JP   0E000H       ;Sprung zum Programmpaket X
         ENDIF
         IFDEF MONI88A     ;Monitor 10/88 - Originalversion mit Anpassungen
@@ -387,12 +390,12 @@ PROGX:  JP   PROGX1       ;Sprung zur AC1 ROM-Bank
         ENDIF
         IFDEF MONI11      ;Monitor 10/88 - BWS-CPLD-Version 2011
 PROGX:  LD   A,01H 
-        OUT  (P14),A      ;Modul 1: EPROM mit Programmpaket X
+        OUT  (P14),A      ;Modul-1: EPROM mit Programmpaket X
         JP   0E000H       ;Sprung zum Programmpaket X
         ENDIF
         IFDEF MONI11A     ;Monitor 10/88 - BWS-CPLD-Version mit Anpassungen
 PROGX:  LD   A,01H 
-        OUT  (P14),A      ;Modul 1: EPROM mit Programmpaket X
+        OUT  (P14),A      ;Modul-1: EPROM mit Programmpaket X
         JP   0E000H       ;Sprung zum Programmpaket X
         ENDIF
 ;
@@ -655,11 +658,11 @@ SPTAB:  JP   RST08        ;Einsprungpunkt fuer RST 08H
         DEFB 02H          ;Kommando-Code V.24 (9600 Baud)
         ENDIF
         IFDEF MONI11      ;Monitor 10/88 - BWS-CPLD-Version 2011
-        DEFB 00H          ;Warmstartcode
+        DEFB 00H          ;Farb-Byte (0 = kein Color-BWS)
         DEFB 43H          ;Kommando-Code V.24 (4800 Baud)
         ENDIF
         IFDEF MONI11A     ;Monitor 10/88 - BWS-CPLD-Version mit Anpassungen
-        DEFB 00H          ;Warmstartcode
+        DEFB 00H          ;Farb-Byte (0 = kein Color-BWS)
         DEFB 02H          ;Kommando-Code V.24 (9600 Baud)
         ENDIF
         DEFB 11H          ;I/O-Byte (Adresse 1821H)
@@ -736,8 +739,8 @@ UPTON2: DEC  A
 ;
 ; UP 'Taste', testet Tastaturstatus
 ; ---------------------------------
-; kehrt bei gedrückter Taste nach 18 ms mit dem Code zum Akku zurück, 
-; keine Taste --> Rückkehr mit gesetzten Z-Flag und A=0
+; kehrt bei gedrueckter Taste nach 18 ms mit dem Code zum Akku zurueck, 
+; keine Taste --> Rueckkehr mit gesetzten Z-Flag und A=0
 ; Code steht auch in 1822H
 ;
 UPTAST: PUSH BC 
@@ -855,22 +858,25 @@ ZGUMS:  IN   A,(P05)
         JR   BSEND3 
 ;
 ;
+; Interruptvektoren fuer die CTC auf 02F8H ff.
+;
         IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
-        DEFB 5BH          ;Interruptvektor CTC Kanal 0 --> GETCO
-        DEFB 07H          ;Interruptvektor CTC Kanal 1 --> nicht genutzt
-        DEFS 6,0FFH       ;Platzhalter 6 Byte
+        DEFB 5BH,07H      ;Interruptvektor CTC Kanal 0
+        DEFB 0FFH,0FFH    ;Interruptvektor CTC Kanal 1
+        DEFB 0FFH,0FFH    ;Interruptvektor CTC Kanal 2
+        DEFB 0FFH,0FFH    ;Interruptvektor CTC Kanal 3
         ENDIF
         IFDEF MONI88A     ;Monitor 10/88 - Originalversion mit Anpassungen
-        DEFB 5BH          ;Interruptvektor CTC Kanal 0 --> GETCO
-        DEFB 07H          ;Interruptvektor CTC Kanal 1 --> nicht genutzt
-        DEFS 6,0FFH       ;Platzhalter 6 Byte
+        DEFB 5BH,07H      ;Interruptvektor CTC Kanal 0
+        DEFB 0FFH,0FFH    ;Interruptvektor CTC Kanal 1
+        DEFB 0FFH,0FFH    ;Interruptvektor CTC Kanal 2
+        DEFB 0FFH,0FFH    ;Interruptvektor CTC Kanal 3
         ENDIF
         IFDEF MONI11      ;Monitor 10/88 - BWS-CPLD-Version 2011
 ;
-        DEFB 5BH          ;Interruptvektor CTC Kanal 0 --> GETCO
-        DEFB 5BH          ;Interruptvektor CTC Kanal 1 --> GETCO
+        DEFB 5BH,07H      ;Interruptvektor CTC Kanal 0
 ;
-;
+; Die Interruptvektoren CTC Kanal 1-3 wurden geopfert fuer:
 ; RAM von 0000H bis 0FFFH einschalten
 ;
 ALTMO:  LD   (0FFFEH),HL  ;wird von Fkt. "Y" angesprungen
@@ -879,10 +885,9 @@ ALTMO:  LD   (0FFFEH),HL  ;wird von Fkt. "Y" angesprungen
         ENDIF
         IFDEF MONI11A     ;Monitor 10/88 - BWS-CPLD-Version mit Anpassungen
 ;
-        DEFB 5BH          ;Interruptvektor CTC Kanal 0 --> GETCO
-        DEFB 5BH          ;Interruptvektor CTC Kanal 1 --> GETCO
+        DEFB 5BH,07H      ;Interruptvektor CTC Kanal 0
 ;
-;
+; Die Interruptvektoren CTC Kanal 1-3 wurden geopfert fuer:
 ; RAM von 0000H bis 0FFFH einschalten
 ;
 ALTMO:  LD   (0FFFEH),HL  ;wird von Fkt. "Y" angesprungen
@@ -1718,7 +1723,7 @@ RUNBP:  CALL CPURSA       ;UP, CPU-Register ausraeumen nach RSA
         DEFS 3,0FFH       ;Platzhalter 3 Byte
 ;
 ;
-; ??? (TODO)
+; Interrupt-Einsprung von CTC Kanal 0 (TODO)
 ;
         CALL CPURSA       ;UP, CPU-Register ausraeumen nach RSA 
         POP  DE 
@@ -2301,7 +2306,7 @@ TABIO:  DEFB P00,0F8H     ;CTC Interruptvektor NWT = 0F8H
         DEFB P07,0CFH     ;PIO1 Port B Ctrl: Mode 3
         DEFB P07,84H      ;PIO1 Port B Ctrl: B7 (TB in) und B2 (Grafikt.) sind Eingaenge
         DEFB P07,07H      ;PIO1 Port B Ctrl: kein Interrupt
-        DEFB P14,00H      ;Modul 1: Konfigurationsregister ruecksetzen
+        DEFB P14,00H      ;Modul-1: Konfigurationsregister ruecksetzen
         DEFB 0FFH
 ;
 ;
@@ -2389,6 +2394,7 @@ L0B85:  CALL L0DC9
 ;
 ; UP 'Zeitschleife 18 ms' zur Tastaturentprellung
 ; -----------------------------------------------
+; (wird im Monitor 10/88 nicht verwendet, evtl. von extern?)
 ;
         PUSH BC
         LD   BC,0481H     ;Zeitkonstante fuer 18ms
@@ -2399,6 +2405,7 @@ L0B85:  CALL L0DC9
 ;
 ; UP 'Zeitschleife 18 ms' zur Tastaturentprellung
 ; -----------------------------------------------
+; (wird im Monitor 10/88 nicht verwendet, evtl. von extern?)
 ;
         PUSH BC
         LD   BC,0481H     ;Zeitkonstante fuer 18ms
@@ -3101,66 +3108,16 @@ L0F6C:  LD   BC,0800H
         IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
 ;
 ;
-; ??? (TODO)
+; ungenutzte CRC-Routine
 ;
-L0F94:  JR   L0F6C
+        DEFS 70,0FFH      ;Platzhalter 70 Byte
 ;
-;
-; ??? (TODO)
-;
-L0F96:  CALL ARGLD        ;ARG1-->HL ARG2-->DE ARG3-->BC
-        EX   DE,HL
-        INC  HL
-        XOR  A
-        SBC  HL,DE
-        LD   BC,0FFFFH
-L0FA1:  LD   A,(DE)
-        XOR  B
-        LD   B,A
-        RRCA
-        RRCA
-        RRCA
-        RRCA
-        AND  0FH
-        XOR  B
-        LD   B,A
-        RRCA
-        RRCA
-        RRCA
-        PUSH AF
-        AND  1FH
-        XOR  C
-        LD   C,A
-        POP  AF
-        PUSH AF
-        RRCA
-        AND  0F0H
-        XOR  C
-        LD   C,A
-        POP  AF
-        AND  0E0H
-        XOR  B
-        LD   B,C
-        LD   C,A
-        INC  DE
-        DEC  HL
-        LD   A,H
-        OR   L
-        JR   NZ,L0FA1
-        PUSH BC
-        RST  18H
-        DEFM " CRC"
-        DEFB 20H+80H
-        POP  HL
-        JP   OUTHL
-;
-        DEFS 8,0FFH       ;Platzhalter 8 Byte
 ;
 ; Funktion "r" --> Basic-Warmstart
 ;
         DEFB 00H,09H,72H,0DH 
         LD   A,02H
-        OUT  (P14),A      ;Modul 1: EPROM mit Basic
+        OUT  (P14),A      ;Modul-1: EPROM mit Basic
         JP   5FD5H        ;Sprung ins Basic-Programm
 ;
 ;
@@ -3174,67 +3131,16 @@ L0FA1:  LD   A,(DE)
 ;
         DEFB 09H,62H,0DH  ;die 00H wird vom letzten Befehl genutzt
         LD   A,02H
-        OUT  (P14),A      ;Modul 1: EPROM mit Basic
+        OUT  (P14),A      ;Modul-1: EPROM mit Basic
         JP   5FCCH        ;Sprung ins Basic-Programm
 ;
         ENDIF             ;Monitor 10/88 - Originalversion 1988
         IFDEF MONI88A     ;Monitor 10/88 - Originalversion mit Anpassungen
 ;
 ;
-; ??? (TODO)
+; ungenutzte CRC-Routine
 ;
-L0F94:  JR   L0F6C
-;
-;
-; ??? (TODO)
-;
-L0F96:  CALL ARGLD        ;ARG1-->HL ARG2-->DE ARG3-->BC
-        EX   DE,HL
-        INC  HL
-        XOR  A
-        SBC  HL,DE
-        LD   BC,0FFFFH
-L0FA1:  LD   A,(DE)
-        XOR  B
-        LD   B,A
-        RRCA
-        RRCA
-        RRCA
-        RRCA
-        AND  0FH
-        XOR  B
-        LD   B,A
-        RRCA
-        RRCA
-        RRCA
-        PUSH AF
-        AND  1FH
-        XOR  C
-        LD   C,A
-        POP  AF
-        PUSH AF
-        RRCA
-        AND  0F0H
-        XOR  C
-        LD   C,A
-        POP  AF
-        AND  0E0H
-        XOR  B
-        LD   B,C
-        LD   C,A
-        INC  DE
-        DEC  HL
-        LD   A,H
-        OR   L
-        JR   NZ,L0FA1
-        PUSH BC
-        RST  18H
-        DEFM " CRC"
-        DEFB 20H+80H
-        POP  HL
-        JP   OUTHL
-;
-        DEFB 0FFH         ;Platzhalter 1 Byte
+        DEFS 63,0FFH      ;Platzhalter 63 Byte
 ;
 ;
 ; Funktion "X" --> AC1 ROM-Bank aufrufen (E000H bis FEFFH) - Teil 1
@@ -3316,7 +3222,7 @@ FINIT1: PUSH AF
 ;
         DEFB 00H,09H,72H,0DH 
         LD   A,02H
-        OUT  (P14),A      ;Modul 1: EPROM mit Basic
+        OUT  (P14),A      ;Modul-1: EPROM mit Basic
         JP   5FD5H        ;Sprung ins Basic-Programm
 ;
 ;
@@ -3330,7 +3236,7 @@ FINIT1: PUSH AF
 ;
         DEFB 09H,62H,0DH  ;die 00H wird vom letzten Befehl genutzt
         LD   A,02H
-        OUT  (P14),A      ;Modul 1: EPROM mit Basic
+        OUT  (P14),A      ;Modul-1: EPROM mit Basic
         JP   5FCCH        ;Sprung ins Basic-Programm
 ;
         ENDIF             ;Monitor 10/88 - BWS-CPLD-Version 2011
@@ -3390,7 +3296,7 @@ FINIT1: PUSH AF
 ;
         DEFB 00H,09H,72H,0DH 
         LD   A,02H
-        OUT  (P14),A      ;Modul 1: EPROM mit Basic
+        OUT  (P14),A      ;Modul-1: EPROM mit Basic
         JP   5FD5H        ;Sprung ins Basic-Programm
 ;
 ;
@@ -3404,7 +3310,7 @@ FINIT1: PUSH AF
 ;
         DEFB 09H,62H,0DH  ;die 00H wird vom letzten Befehl genutzt
         LD   A,02H
-        OUT  (P14),A      ;Modul 1: EPROM mit Basic
+        OUT  (P14),A      ;Modul-1: EPROM mit Basic
         JP   5FCCH        ;Sprung ins Basic-Programm
 ;
         ENDIF             ;Monitor 10/88 - BWS-CPLD-Version mit Anpassungen
