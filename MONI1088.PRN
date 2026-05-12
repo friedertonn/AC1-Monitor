@@ -3,7 +3,7 @@
 
                                 ; ************************************************************
                                 ; *                                                          *
-                                ; *  MONITOR 10/88 fuer den AC 1     Version vom 23.04.2025  *
+                                ; *  MONITOR 10/88 fuer den AC 1     Version vom 12.05.2026  *
                                 ; *                                                          *
                                 ; ************************************************************
                                 ;
@@ -18,10 +18,10 @@
                                 ; - ungenutzte CRC-Routine auf 0F94H entfernt
                                 ;
                                 ; MONI88A - zus. Aenderungen an der Originalversion 1988:
-                                ; - Backspace/DEL mit 7FH (Adr. 0323H)
+                                ; - Backspace/DEL mit 7FH (Adr. 0323H und 0488H)
                                 ; - RAM loeschen mit Kommando "p" von 1858H bis 0FEFFH
                                 ; - die Monitorkommandos "X", "b" und "r" wurden entfernt
-                                ; - neues Monitorkommando "X": Start der AC1 ROM-Bank
+                                ; - neues Monitorkommando "X": Start von Frieders ROM-Bank
                                 ; - PIO2 belegt die I/O-Adressen 18H bis 1BH
                                 ;
                                 ; MONI11 - Korrekturen an der BWS-CPLD-Version 2011:
@@ -29,20 +29,21 @@
                                 ;   Adresse 0FD4H von 10H auf 20H korrigiert
                                 ; - fehlerhafter Interruptvektor fuer CTC Kanal 0
                                 ;   von 5B5BH auf 075BH korrigiert
+                                ; - der Aufruf des alternativen Monitors "Y" laeuft
+                                ;   nicht mehr ueber die Interruptvektoren der CTC
                                 ;
                                 ; MONI11A - zus. Aenderungen an der BWS-CPLD-Version 2011:
                                 ; - Farbbyte 0F9FH ist 4FH (= weiss auf blauem Hintergrund)
                                 ; - V.24-Kontrollregister (Adr. 023EH) wieder auf 02H
                                 ;
-                                ;
-                                ; ***************************************************
-                                ; *  Wichtig: Hier muss die gewuenschte             *
-                                ; *           Monitorversion auskommentiert werden  *
-                                ; ***************************************************
+                                ; ************************************************
+                                ; *  Wichtig: Hier muss die gewuenschte          *
+                                ; *           Monitorversion selektiert werden:  *
+                                ; ************************************************
   0001                          MONI88  EQU  1       ;Monitor 10/88 - Originalversion 1988
-                                ;MONI88A EQU  1       ;Monitor 10/88 - Originalversion mit Anpassungen
-                                ;MONI11  EQU  1       ;Monitor 10/88 - BWS-CPLD-Version 2011
-                                ;MONI11A EQU  1       ;Monitor 10/88 - BWS-CPLD-Version mit Anpassungen
+  0000                          MONI88A EQU  0       ;Monitor 10/88 - Originalversion mit Anpassungen
+  0000                          MONI11  EQU  0       ;Monitor 10/88 - BWS-CPLD-Version 2011
+  0000                          MONI11A EQU  0       ;Monitor 10/88 - BWS-CPLD-Version mit Anpassungen
                                 ;
                                 ;
                                         PAGE 64
@@ -52,16 +53,16 @@
                                 
                                 ;
                                         IF1
-                                        IFDEF MONI88
+                                        IF MONI88
                                         .PRINTX 'Monitor 10/88 - Originalversion 1988'
                                         ENDIF
-                                        IFDEF MONI88A
+                                        IF MONI88A
                                         .PRINTX 'Monitor 10/88 - Originalversion mit Anpassungen'
                                         ENDIF
-                                        IFDEF MONI11
+                                        IF MONI11
                                         .PRINTX 'Monitor 10/88 - BWS-CPLD-Version 2011'
                                         ENDIF
-                                        IFDEF MONI11A
+                                        IF MONI11A
                                         .PRINTX 'Monitor 10/88 - BWS-CPLD-Version mit Anpassungen'
                                         ENDIF
                                         .PRINTX 'PASS 1'
@@ -95,7 +96,7 @@
   0005                          P05     EQU  05H          ;PIO 1 - Port B (Daten)
   0006                          P06     EQU  06H          ;PIO 1 - Port A (Control)
   0007                          P07     EQU  07H          ;PIO 1 - Port B (Control)
-                                IFDEF MONI88A             ;MONI88A hat PIO2 I/O-Adr. 18H...1BH
+                                IF MONI88A                ;MONI88A hat PIO2 I/O-Adr. 18H...1BH
                                 P08     EQU  18H          ;PIO 2 - Port A (Daten)
                                 P09     EQU  19H          ;PIO 2 - Port B (Daten)
                                 P0A     EQU  1AH          ;PIO 2 - Port A (Control)
@@ -168,25 +169,12 @@
   0020    C3 180B               L0020:  JP   180BH        ;Sprungtabelle 180BH
                                 ;
                                 ;
-                                        IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
+                                        IF MONI88 OR MONI88A
   0023                                  DEFS 5,0FFH       ;Platzhalter 5 Byte
-                                        ENDIF
+                                        ELSE              ;MONI11 OR MONI11A
 	MACRO-80 3.44	09-Dec-81	PAGE	1-3
 
 
-                                        IFDEF MONI88A     ;Monitor 10/88 - Originalversion mit Anpassungen
-                                        DEFS 5,0FFH       ;Platzhalter 5 Byte
-                                        ENDIF
-                                        IFDEF MONI11      ;Monitor 10/88 - BWS-CPLD-Version 2011
-                                ;
-                                ; Codeschnipsel zur Funktion "8"
-                                ; ------------------------------
-                                ;
-                                FKT8:   LD   A,40H        ;Codeschnipsel zur Funktion "8"
-                                        JP   FKT0         ;A auf Port 0FH ausgeben
-                                ;
-                                        ENDIF
-                                        IFDEF MONI11A     ;Monitor 10/88 - BWS-CPLD-Version mit Anpassungen
                                 ;
                                 ; Codeschnipsel zur Funktion "8"
                                 ; ------------------------------
@@ -234,9 +222,6 @@
                                 ; INIT3 nach Reset
                                 ;
   003B    3E 02                 INIT3:  LD   A,02H        ;HWT vom Interruptvektor
-	MACRO-80 3.44	09-Dec-81	PAGE	1-4
-
-
   003D    ED 47                         LD   I,A 
   003F    21 0AD8                       LD   HL,TABIO     ;Tabelle fuer IO-Befehle
   0042    06 11                         LD   B,17         ;insgesamt 17 Befehle an versch. Ports
@@ -250,19 +235,15 @@
   004F    23                            INC  HL 
   0050    10 FB                         DJNZ INIT5 
   0052    01 0020                       LD   BC,0020H     ;Laenge = 32 Bytes
+	MACRO-80 3.44	09-Dec-81	PAGE	1-4
+
+
   0055    21 0220                       LD   HL,SPTAB     ;Sprungtabelle = 0220H
   0058    11 1802                       LD   DE,1802H     ;Ziel = 1802H
   005B    ED B0                         LDIR 
-                                        IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
+                                        IF MONI88 OR MONI88A
   005D    CD 0297                       CALL UPTAST       ;Taste gedrueckt?
-                                        ENDIF
-                                        IFDEF MONI88A     ;Monitor 10/88 - Originalversion mit Anpassungen
-                                        CALL UPTAST       ;Taste gedrueckt?
-                                        ENDIF
-                                        IFDEF MONI11      ;Monitor 10/88 - BWS-CPLD-Version 2011
-                                        CALL FARBIN       ;CALL Farb-Initialisierung
-                                        ENDIF
-                                        IFDEF MONI11A     ;Monitor 10/88 - BWS-CPLD-Version mit Anpassungen
+                                        ELSE              ;MONI11 OR MONI11A
                                         CALL FARBIN       ;CALL Farb-Initialisierung
                                         ENDIF
   0060    20 07                         JR   NZ,INIT6     ;Taste gedrueckt (nur Originalversion 1988)
@@ -282,7 +263,7 @@
   006F    D3 14                         OUT  (P14),A      ;Modul-1: Konfigurationsregister ruecksetzen
   0071    DF                            RST  18H 
   0072    0C 0D 0F 0F                   DEFB 0CH,0DH,0FH,0FH 
-                                        IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
+                                        IF MONI88 OR MONI88A
   0076    41 43 20 31                   DEFM "AC 1 * MONITOR *" 
   007A    20 2A 20 4D           
   007E    4F 4E 49 54           
@@ -291,19 +272,7 @@
   008A    30 20 20 2A           
   008E    20 28 31 30           
   0092    2F 38 38 29           
-                                        ENDIF
-                                        IFDEF MONI88A     ;Monitor 10/88 - Originalversion mit Anpassungen
-                                        DEFM "AC 1 * MONITOR *" 
-                                        DEFM " U880  * (10/88)" 
-                                        ENDIF
-                                        IFDEF MONI11      ;Monitor 10/88 - BWS-CPLD-Version 2011
-	MACRO-80 3.44	09-Dec-81	PAGE	1-5
-
-
-                                        DEFM "AC 1 * MONITOR (" 
-                                        DEFM "10/88) * 11/2011" 
-                                        ENDIF
-                                        IFDEF MONI11A     ;Monitor 10/88 - BWS-CPLD-Version mit Anpassungen
+                                        ELSE              ;MONI11 OR MONI11A
                                         DEFM "AC 1 * MONITOR (" 
                                         DEFM "10/88) * 11/2011" 
                                         ENDIF
@@ -329,6 +298,9 @@
   00A7    3A 1821                       LD   A,(IOBYTE)   ;LD A,I/O-Byte 
   00AA    0F                            RRCA              ;Rotiere A-Register rechts
   00AB    30 29                         JR   NC,NOTAST    ;anderes Eingabegeraet (keine Tastatur)
+	MACRO-80 3.44	09-Dec-81	PAGE	1-5
+
+
   00AD    21 1857                       LD   HL,HREGIN    ;Hilfsregister UP 'INLINE'
   00B0    46                            LD   B,(HL) 
   00B1    36 18                         LD   (HL),18H 
@@ -360,9 +332,6 @@
                                 ; --------------------
                                 ;
   00D9    3A 1820               V24IN1: LD   A,(V24REG)   ;V.24-Kontrollregister
-	MACRO-80 3.44	09-Dec-81	PAGE	1-6
-
-
   00DC    E6 07                         AND  07H          ;Selektion der Baudrate
   00DE    47                            LD   B,A          ;B = Baudrate (kodiert)
   00DF    3E 01                         LD   A,01H 
@@ -392,6 +361,9 @@
   0106    D3 08                         OUT  (P08),A      ;Steuerleitung auf High setzen
   0108    79                            LD   A,C          ;empfangenes Zeichen --> A
   0109    18 97                         JR   ENDE8        ;Ende von RST08
+	MACRO-80 3.44	09-Dec-81	PAGE	1-6
+
+
                                 ;
   010B    FF                            DEFB 0FFH         ;Platzhalter 1 Byte
                                 ;
@@ -407,27 +379,13 @@
                                 ; Start vom Programmpaket X
                                 ; -------------------------
                                 ;
-                                        IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
+                                        IF MONI88A
+                                PROGX:  JP   PROGX1       ;Sprung zu Frieders ROM-Bank
+                                        DEFS 4,0FFH       ;Platzhalter 4 Byte
+                                        ELSE
   0116    3E 01                 PROGX:  LD   A,01H 
   0118    D3 14                         OUT  (P14),A      ;Modul-1: EPROM mit Programmpaket X
   011A    C3 E000                       JP   0E000H       ;Sprung zum Programmpaket X
-                                        ENDIF
-                                        IFDEF MONI88A     ;Monitor 10/88 - Originalversion mit Anpassungen
-                                PROGX:  JP   PROGX1       ;Sprung zur AC1 ROM-Bank
-                                        DEFS 4,0FFH       ;Platzhalter 4 Byte
-                                        ENDIF
-                                        IFDEF MONI11      ;Monitor 10/88 - BWS-CPLD-Version 2011
-                                PROGX:  LD   A,01H 
-                                        OUT  (P14),A      ;Modul-1: EPROM mit Programmpaket X
-                                        JP   0E000H       ;Sprung zum Programmpaket X
-                                        ENDIF
-                                        IFDEF MONI11A     ;Monitor 10/88 - BWS-CPLD-Version mit Anpassungen
-                                PROGX:  LD   A,01H 
-	MACRO-80 3.44	09-Dec-81	PAGE	1-7
-
-
-                                        OUT  (P14),A      ;Modul-1: EPROM mit Programmpaket X
-                                        JP   0E000H       ;Sprung zum Programmpaket X
                                         ENDIF
                                 ;
                                 ;
@@ -466,6 +424,9 @@
   0138    3E 23                         LD   A,23H        ;"#"
   013A    23                    INLIN2: INC  HL           ;1 Kursorposition zurueck
   013B    BE                            CP   (HL)         ;sind wir beim Prompt angekommen?
+	MACRO-80 3.44	09-Dec-81	PAGE	1-7
+
+
   013C    20 FC                         JR   NZ,INLIN2    ;nein
   013E    2B                            DEC  HL 
   013F    2B                            DEC  HL           ;jetzt 2 Kursorpositionen nach vorn
@@ -486,9 +447,6 @@
   014D    AF                            XOR  A 
   014E    21 1858                       LD   HL,1858H     ;Zwischenspeicher initialisieren
   0151    77                            LD   (HL),A 
-	MACRO-80 3.44	09-Dec-81	PAGE	1-8
-
-
   0152    23                            INC  HL 
   0153    77                            LD   (HL),A 
   0154    23                            INC  HL 
@@ -529,6 +487,9 @@
   0179    4D                            LD   C,L          ;BC = HL
   017A    6E                            LD   L,(HL)       ;NWT --> L
   017B    03                            INC  BC
+	MACRO-80 3.44	09-Dec-81	PAGE	1-8
+
+
   017C    0A                            LD   A,(BC)
   017D    67                            LD   H,A          ;HWT --> H
   017E    C1                            POP  BC           ;AF zurueckholen nach BC
@@ -549,9 +510,6 @@
   0187    1F                            RRA 
   0188    CD 018C                       CALL OUTHX1       ;HWT ausgeben
   018B    F1                            POP  AF 
-	MACRO-80 3.44	09-Dec-81	PAGE	1-9
-
-
   018C    F5                    OUTHX1: PUSH AF           ;im 2. Durchlauf NWT ausgeben
   018D    E6 0F                         AND  0FH 
   018F    C6 30                         ADD  A,30H 
@@ -592,6 +550,9 @@
   01B6    E5                            PUSH HL 
   01B7    D5                            PUSH DE 
   01B8    C5                            PUSH BC 
+	MACRO-80 3.44	09-Dec-81	PAGE	1-9
+
+
   01B9    F5                            PUSH AF 
   01BA    18 15                         JR   RSACP1       ;alten Stack zurueck und Tschuess
                                 ;
@@ -612,9 +573,6 @@
   01CB    D1                            POP  DE 
   01CC    E1                            POP  HL 
   01CD    DD E1                         POP  IX 
-	MACRO-80 3.44	09-Dec-81	PAGE	1-10
-
-
   01CF    FD E1                         POP  IY 
   01D1    ED 7B 1858            RSACP1: LD   SP,(1858H)   ;alten Stack zurueck
   01D5    C9                            RET 
@@ -655,6 +613,9 @@
   01F9    20 EC                         JR   NZ,KOMM2 
   01FB    23                            INC  HL 
   01FC    3E 0D                         LD   A,0DH        ;4. Such-Byte = 0DH
+	MACRO-80 3.44	09-Dec-81	PAGE	1-10
+
+
   01FE    BE                            CP   (HL) 
   01FF    20 E6                         JR   NZ,KOMM2 
   0201    01 01DE                       LD   BC,01DEH     ;Adresse Kommandozeicheneingabe
@@ -675,9 +636,6 @@
                                 ;
                                 ;
                                 ; Sprungverteiler fuer RST und NMI (insgesamt 32 Bytes)
-	MACRO-80 3.44	09-Dec-81	PAGE	1-11
-
-
                                 ; --------------------------------
                                 ;
                                 ; wird beim Systemstart nach Adresse 1802H kopiert
@@ -692,19 +650,15 @@
   0235    C3 0240                       JP   BREAK        ;Einsprungpunkt fuer NMI 
   0238    FF FF                         DEFB 0FFH,0FFH    ;Zwischenspeicher 'Inline'
   023A    53 43 48                      DEFM "SCH"        ;Warmstartcode
-                                        IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
+                                        IF MONI88 OR MONI88A
   023D    AF                            DEFB 0AFH         ;Warmstartcode
   023E    02                            DEFB 02H          ;Kommando-Code V.24 (9600 Baud)
                                         ENDIF
-                                        IFDEF MONI88A     ;Monitor 10/88 - Originalversion mit Anpassungen
-                                        DEFB 0AFH         ;Warmstartcode
-                                        DEFB 02H          ;Kommando-Code V.24 (9600 Baud)
-                                        ENDIF
-                                        IFDEF MONI11      ;Monitor 10/88 - BWS-CPLD-Version 2011
+                                        IF MONI11
                                         DEFB 00H          ;Farb-Byte (0 = kein Color-BWS)
                                         DEFB 43H          ;Kommando-Code V.24 (4800 Baud)
                                         ENDIF
-                                        IFDEF MONI11A     ;Monitor 10/88 - BWS-CPLD-Version mit Anpassungen
+                                        IF MONI11A
                                         DEFB 00H          ;Farb-Byte (0 = kein Color-BWS)
                                         DEFB 02H          ;Kommando-Code V.24 (9600 Baud)
                                         ENDIF
@@ -722,6 +676,9 @@
   024C    31 1856                       LD   SP,1856H     ;Stack 
   024F    3E 11                         LD   A,11H 
   0251    32 1821                       LD   (IOBYTE),A   ;LD I/O-Byte,A
+	MACRO-80 3.44	09-Dec-81	PAGE	1-11
+
+
   0254    DF                            RST  18H 
   0255    20 42 52 45                   DEFM " BREA" 
   0259    41                    
@@ -738,9 +695,6 @@
   0265    E5                            PUSH HL 
   0266    ED 45                         RETN 
                                 ;
-	MACRO-80 3.44	09-Dec-81	PAGE	1-12
-
-
                                 ;
                                 ; UP 'ERROR', schreibt Zeichenkette 'ERROR'
                                 ; -----------------------------------------
@@ -785,6 +739,9 @@
   0296    C9                            RET 
                                 ;
                                 ;
+	MACRO-80 3.44	09-Dec-81	PAGE	1-12
+
+
                                 ; UP 'Taste', testet Tastaturstatus
                                 ; ---------------------------------
                                 ; kehrt bei gedrueckter Taste nach 18 ms mit dem Code zum Akku zurueck, 
@@ -801,9 +758,6 @@
   02A4    20 17                         JR   NZ,UPTAS3    ;Taste nicht (mehr) gedrueckt
   02A6    10 F8                         DJNZ UPTAS1 
                                 ;
-	MACRO-80 3.44	09-Dec-81	PAGE	1-13
-
-
                                 ; Einbau der Grafiktaste (nur Originaltastatur)                   
                                 ; ----------------------                                                                
                                 ; Der einpolige rastende Schalter kommt an PIO 1/B2 und Masse.    
@@ -847,39 +801,12 @@
   02DA    C9                            RET               ;auf den Adressbus
                                 ;
                                 ;
-                                        IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
+                                        IF MONI88 OR MONI88A
+	MACRO-80 3.44	09-Dec-81	PAGE	1-13
+
+
   02DB                                  DEFS 21,0FFH      ;Platzhalter 21 Byte
-                                        ENDIF
-                                        IFDEF MONI88A     ;Monitor 10/88 - Originalversion mit Anpassungen
-                                        DEFS 21,0FFH      ;Platzhalter 21 Byte
-                                        ENDIF
-                                        IFDEF MONI11      ;Monitor 10/88 - BWS-CPLD-Version 2011
-                                ;
-                                ; Codeschnipsel fuer Farb-Initialisierung
-                                ;
-                                FARBIN: CALL FINIT        ;Farb-Initialisierung 
-                                        JR   UPTAST       ;Taste gedrueckt?
-                                ;
-                                ;
-                                ; Funktion "6" --> PIO2-Karte: Bank 1 einschalten
-                                ;
-                                        DEFB 00H,09H,36H,0DH 
-	MACRO-80 3.44	09-Dec-81	PAGE	1-14
-
-
-                                        LD   A,10H 
-                                        JR   FKT0         ;A auf Port 0FH ausgeben
-                                ;
-                                ;
-                                ; Funktion "0" --> PIO2-Karte: EPROM ausblenden
-                                ;
-                                        DEFB 00H,09H,30H,0DH 
-                                        XOR  A
-                                FKT0:   OUT  (P0F),A 
-                                        RET 
-                                ;
-                                        ENDIF
-                                        IFDEF MONI11A     ;Monitor 10/88 - BWS-CPLD-Version mit Anpassungen
+                                        ELSE              ;MONI11 OR MONI11A
                                 ;
                                 ; Codeschnipsel fuer Farb-Initialisierung
                                 ;
@@ -914,43 +841,10 @@
                                 ;
                                 ; Interruptvektoren fuer die CTC auf 02F8H ff.
                                 ;
-                                        IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
   02F8    5B 07                         DEFB 5BH,07H      ;Interruptvektor CTC Kanal 0
   02FA    FF FF                         DEFB 0FFH,0FFH    ;Interruptvektor CTC Kanal 1
   02FC    FF FF                         DEFB 0FFH,0FFH    ;Interruptvektor CTC Kanal 2
   02FE    FF FF                         DEFB 0FFH,0FFH    ;Interruptvektor CTC Kanal 3
-                                        ENDIF
-                                        IFDEF MONI88A     ;Monitor 10/88 - Originalversion mit Anpassungen
-                                        DEFB 5BH,07H      ;Interruptvektor CTC Kanal 0
-                                        DEFB 0FFH,0FFH    ;Interruptvektor CTC Kanal 1
-                                        DEFB 0FFH,0FFH    ;Interruptvektor CTC Kanal 2
-                                        DEFB 0FFH,0FFH    ;Interruptvektor CTC Kanal 3
-                                        ENDIF
-                                        IFDEF MONI11      ;Monitor 10/88 - BWS-CPLD-Version 2011
-	MACRO-80 3.44	09-Dec-81	PAGE	1-15
-
-
-                                ;
-                                        DEFB 5BH,07H      ;Interruptvektor CTC Kanal 0
-                                ;
-                                ; Die Interruptvektoren CTC Kanal 1-3 wurden geopfert fuer:
-                                ; RAM von 0000H bis 0FFFH einschalten
-                                ;
-                                ALTMO:  LD   (0FFFEH),HL  ;wird von Fkt. "Y" angesprungen
-                                        JP   0FFFEH       ;Start alternativer Monitor im RAM
-                                ;
-                                        ENDIF
-                                        IFDEF MONI11A     ;Monitor 10/88 - BWS-CPLD-Version mit Anpassungen
-                                ;
-                                        DEFB 5BH,07H      ;Interruptvektor CTC Kanal 0
-                                ;
-                                ; Die Interruptvektoren CTC Kanal 1-3 wurden geopfert fuer:
-                                ; RAM von 0000H bis 0FFFH einschalten
-                                ;
-                                ALTMO:  LD   (0FFFEH),HL  ;wird von Fkt. "Y" angesprungen
-                                        JP   0FFFEH       ;Start alternativer Monitor im RAM 
-                                ;
-                                        ENDIF
                                 ;
                                 ;
                                 ; Funktion Ausgabe ueber Bildschirm - Teil 3
@@ -971,15 +865,18 @@
   0316    EB                            EX   DE,HL        ;Kursorposition in HL, Stack in DE
   0317    C9                            RET               ;zur Einsprungadresse springen
                                 ;
+	MACRO-80 3.44	09-Dec-81	PAGE	1-14
+
+
   0318    35                    FKT33C: DEC  (HL)         ;muessen noch Argumente uebergeben werden?
   0319    20 18                         JR   NZ,KUPOSI    ;ja (fuer Kursorpositionierung mit Kommando 0EH)
   031B    36 01                 FKT33D: LD   (HL),01H     ;nein
   031D    EB                            EX   DE,HL        ;Kursorposition in HL, Stack in DE
   031E    FE 1A                         CP   1AH          ;^Z = Zeichensatz umschalten
   0320    28 CE                         JR   Z,ZGUMS 
-                                        IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
+                                        IF MONI88
   0322    FE 5F                         CP   5FH          ;Backspace/DEL mit 5FH
-                                        ELSE              ;alle anderen Monitor-Versionen
+                                        ELSE
                                         CP   7FH          ;Backspace/DEL mit 7FH
                                         ENDIF
   0324    28 37                         JR   Z,DELETE 
@@ -990,9 +887,6 @@
   0327    2B                    BS0327: DEC  HL           ;Kursorposition--
   0328    CD 03DC               BSEND1: CALL SCROLL       ;muss der BS gescrollt werden?
   032B    22 1800               BSEND2: LD   (KURPOS),HL  ;Kursorposition in Kursorspeicher
-	MACRO-80 3.44	09-Dec-81	PAGE	1-16
-
-
   032E    C1                    BSEND3: POP  BC 
   032F    D1                            POP  DE 
   0330    E1                            POP  HL 
@@ -1034,6 +928,9 @@
   035D    23                    DELETE: INC  HL           ;Kursorposition++
   035E    CD 03DC                       CALL SCROLL 
   0361    36 20                         LD   (HL),20H 
+	MACRO-80 3.44	09-Dec-81	PAGE	1-15
+
+
   0363    18 C6                         JR   BSEND2 
                                 ;
                                 ; 0CH --> Kursor Home + Bildschirm loeschen
@@ -1053,9 +950,6 @@
                                 ; 03H --> Zeile ab Kursorposition loeschen
                                 ;
   0375    36 20                 BS0375: LD   (HL),20H 
-	MACRO-80 3.44	09-Dec-81	PAGE	1-17
-
-
   0377    2B                    CLRLIN: DEC  HL 
   0378    36 20                         LD   (HL),20H 
   037A    3E 3F                         LD   A,3FH 
@@ -1097,6 +991,9 @@
   039B    E6 C0                         AND  0C0H
   039D    6F                            LD   L,A 
   039E    18 87                         JR   BS0327 
+	MACRO-80 3.44	09-Dec-81	PAGE	1-16
+
+
                                 ;
                                 ; 0EH --> Kursor direkt positionieren
                                 ;
@@ -1116,9 +1013,6 @@
   03AB    7D                    DELE1:  LD   A,L 
   03AC    ED A8                         LDD 
   03AE    E6 3F                         AND  3FH 
-	MACRO-80 3.44	09-Dec-81	PAGE	1-18
-
-
   03B0    20 F9                         JR   NZ,DELE1 
   03B2    13                            INC  DE 
   03B3    3E 20                 DELE2:  LD   A,20H 
@@ -1160,6 +1054,9 @@
                                 ;
                                 ; 0FH --> Tabulator 8 Spalten
                                 ;
+	MACRO-80 3.44	09-Dec-81	PAGE	1-17
+
+
   03D7    11 FFF8               BS03D7: LD   DE,0FFF8H
   03DA    18 B6                         JR   KURMOV 
                                 ;
@@ -1179,9 +1076,6 @@
   03EF    01 07C0                       LD   BC,07C0H 
   03F2    ED B8                         LDDR              ;1 Zeile nach oben scrollen
   03F4    EB                            EX   DE,HL 
-	MACRO-80 3.44	09-Dec-81	PAGE	1-19
-
-
   03F5    23                            INC  HL 
   03F6    2D                    SCROL2: DEC  L 
   03F7    36 20                         LD   (HL),20H     ;unterste Zeile loeschen
@@ -1223,6 +1117,9 @@
   0423    F1                            POP  AF 
   0424    F5                            PUSH AF 
   0425    0F                            RRCA 
+	MACRO-80 3.44	09-Dec-81	PAGE	1-18
+
+
   0426    E6 F0                         AND  0F0H
   0428    A9                            XOR  C 
   0429    4F                            LD   C,A 
@@ -1242,9 +1139,6 @@
   043C    A0                            DEFB 20H+80H 
   043D    E1                            POP  HL 
   043E    C3 019A                       JP   OUTHL 
-	MACRO-80 3.44	09-Dec-81	PAGE	1-20
-
-
                                 ;
                                 ;
                                 ; ??? (TODO)
@@ -1286,15 +1180,18 @@
   047B    10 F4                         DJNZ L0471 
   047D    22 185B                       LD   (ARG1),HL 
   0480    DF                            RST  18H 
+	MACRO-80 3.44	09-Dec-81	PAGE	1-19
+
+
   0481    20 2A                         DEFM " *" 
   0483    06                            DEFB 06H 
   0484    20                            DEFM " " 
   0485    86                            DEFB 06H+80H 
   0486    C9                            RET 
                                 ;
-                                        IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
+                                        IF MONI88
   0487    FE 5F                 L0487:  CP   5FH          ;Backspace/DEL mit 5FH
-                                        ELSE              ;alle anderen Monitor-Versionen
+                                        ELSE
                                 L0487:  CP   7FH          ;Backspace/DEL mit 7FH
                                         ENDIF
   0489    28 09                         JR   Z,L0494 
@@ -1305,9 +1202,6 @@
   0492    A7                    L0492:  AND  A 
   0493    C9                            RET 
                                 ;
-	MACRO-80 3.44	09-Dec-81	PAGE	1-21
-
-
   0494    37                    L0494:  SCF 
   0495    C9                            RET 
                                 ;
@@ -1340,37 +1234,21 @@
   04B8    C9                            RET 
                                 ;
                                 ;
-                                        IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
+                                        IF MONI88 OR MONI88A
   04B9                                  DEFS 17,0FFH      ;Platzhalter 17 Byte
-                                        ENDIF
-                                        IFDEF MONI88A     ;Monitor 10/88 - Originalversion mit Anpassungen
-                                        DEFS 17,0FFH      ;Platzhalter 17 Byte
-                                        ENDIF
-                                        IFDEF MONI11      ;Monitor 10/88 - BWS-CPLD-Version 2011
+                                        ELSE              ;MONI11 OR MONI11A
                                 ;
                                 ; Funktion "Y" --> alternativer Monitor im RAM
                                 ;
                                         DEFB 00H,09H,59H,0DH 
                                         CALL ARGLD        ;ARG1-->HL ARG2-->DE ARG3-->BC
                                         LD   B,10H        ;BC = 1000H, DE = 0000H
+	MACRO-80 3.44	09-Dec-81	PAGE	1-20
+
+
                                         LDIR 
                                         LD   HL,16D3H     ;OUT (P16),A --> RAM einblenden
                                         JP   ALTMO 
-                                ;
-                                        ENDIF
-                                        IFDEF MONI11A     ;Monitor 10/88 - BWS-CPLD-Version mit Anpassungen
-                                ;
-                                ; Funktion "Y" --> alternativer Monitor im RAM
-                                ;
-                                        DEFB 00H,09H,59H,0DH 
-                                        CALL ARGLD        ;ARG1-->HL ARG2-->DE ARG3-->BC
-                                        LD   B,10H        ;BC = 1000H, DE = 0000H 
-                                        LDIR 
-                                        LD   HL,16D3H     ;OUT (P16),A --> RAM einblenden
-                                        JP   ALTMO 
-	MACRO-80 3.44	09-Dec-81	PAGE	1-22
-
-
                                 ;
                                         ENDIF
                                 ;
@@ -1428,12 +1306,12 @@
   050A    E5                            PUSH HL 
   050B    D5                            PUSH DE 
   050C    23                            INC  HL 
+	MACRO-80 3.44	09-Dec-81	PAGE	1-21
+
+
   050D    23                            INC  HL 
   050E    EB                            EX   DE,HL 
   050F    AF                            XOR  A 
-	MACRO-80 3.44	09-Dec-81	PAGE	1-23
-
-
   0510    ED 52                         SBC  HL,DE 
   0512    38 09                         JR   C,L051D 
   0514    BC                            CP   H 
@@ -1491,12 +1369,12 @@
   0565    DF                    L0565:  RST  18H 
   0566    20 20 20 44                   DEFM "   DEC" 
   056A    45 43                 
+	MACRO-80 3.44	09-Dec-81	PAGE	1-22
+
+
   056C    BA                            DEFB 3AH+80H      ;":+80H 
   056D    7B                            LD   A,E 
   056E    E6 0F                         AND  0FH 
-	MACRO-80 3.44	09-Dec-81	PAGE	1-24
-
-
   0570    F6 30                         OR   30H 
   0572    D7                            RST  10H 
   0573    CD 019A                       CALL OUTHL 
@@ -1554,12 +1432,12 @@
   05CC    20 6F                         JR   NZ,L063D 
   05CE    DF                    L05CE:  RST  18H 
   05CF    20 20 42 50                   DEFM "  BP" 
+	MACRO-80 3.44	09-Dec-81	PAGE	1-23
+
+
   05D3    BA                            DEFB 3AH+80H      ;":+80H 
   05D4    2A 1879                       LD   HL,(1879H) 
   05D7    CD 0589                       CALL OUTHL1       ;HL auf dem Bildschirm ausgeben
-	MACRO-80 3.44	09-Dec-81	PAGE	1-25
-
-
   05DA    DF                            RST  18H 
   05DB    42 53                         DEFM "BS" 
   05DD    BA                            DEFB 3AH+80H      ;":+80H 
@@ -1617,12 +1495,12 @@
   0639    DF                            RST  18H 
   063A    29                            DEFM ")" 
   063B    8D                            DEFB 0DH+80H 
+	MACRO-80 3.44	09-Dec-81	PAGE	1-24
+
+
   063C    C9                            RET 
                                 ;
                                 ;
-	MACRO-80 3.44	09-Dec-81	PAGE	1-26
-
-
                                 ; ??? (TODO)
                                 ;
   063D    2A 181A               L063D:  LD   HL,(ZWINL) 
@@ -1680,12 +1558,12 @@
                                 ; eine 16-bit HEX-Zahl und speichert die Eingabe
                                 ; (wenn etwas eingegeben wurde) in (DE-1) und (DE)
   067E    CD 0128               INHEX4: CALL INLINE 
+	MACRO-80 3.44	09-Dec-81	PAGE	1-25
+
+
   0681    2A 181A                       LD   HL,(ZWINL)   ;Adresse Zeilenanfang in HL
   0684    EB                            EX   DE,HL
   0685    E5                            PUSH HL           ;DE = Speicheradresse + 1
-	MACRO-80 3.44	09-Dec-81	PAGE	1-27
-
-
   0686    D5                            PUSH DE           ;Adresse BS-Zeilenanfang
   0687    CD 0172                       CALL INHEX        ;Umwandlung ASCII --> HEX
   068A    EB                            EX   DE,HL        ;HEX-Ergebnis jetzt in DE
@@ -1743,12 +1621,12 @@
   06D4    01 0003                       LD   BC,0003H     ;3 Bytes ab BP sichern
   06D7    ED B0                         LDIR 
   06D9    21 0743                       LD   HL,RUNBP     ;Routine fuer Breakpoint-Bearbeitung
+	MACRO-80 3.44	09-Dec-81	PAGE	1-26
+
+
   06DC    22 1815                       LD   (1815H),HL   ;Sprungtabelle fuer RST38 patchen
   06DF    C9                            RET 
                                 ;
-	MACRO-80 3.44	09-Dec-81	PAGE	1-28
-
-
                                 ;
                                 ; Funktion "G" --> Go
                                 ;
@@ -1806,12 +1684,12 @@
   073F    FB                            EI 
   0740    0A                            LD   A,(BC)       ;Zeit verbraten bis zum Interrupt?
   0741    F1                            POP  AF 
+	MACRO-80 3.44	09-Dec-81	PAGE	1-27
+
+
   0742    C9                            RET 
                                 ;
                                 ;
-	MACRO-80 3.44	09-Dec-81	PAGE	1-29
-
-
                                 ; Routine fuer Breakpoint
                                 ;
   0743    CD 01A5               RUNBP:  CALL CPURSA       ;UP, CPU-Register ausraeumen nach RSA 
@@ -1869,12 +1747,12 @@
   079C    1A                            LD   A,(DE) 
   079D    D7                            RST  10H 
   079E    13                            INC  DE 
+	MACRO-80 3.44	09-Dec-81	PAGE	1-28
+
+
   079F    DF                            RST  18H 
   07A0    BA                            DEFB 3AH+80H      ;":+80H 
   07A1    7E                            LD   A,(HL) 
-	MACRO-80 3.44	09-Dec-81	PAGE	1-30
-
-
   07A2    2B                            DEC  HL 
   07A3    E5                            PUSH HL 
   07A4    6E                            LD   L,(HL) 
@@ -1932,12 +1810,12 @@
   0800    FE 51                 L0800:  CP   51H 
   0802    20 03                         JR   NZ,L0807 
   0804    E5                    L0804:  PUSH HL 
+	MACRO-80 3.44	09-Dec-81	PAGE	1-29
+
+
   0805    ED 4D                         RETI 
                                 ;
   0807    FE 42                 L0807:  CP   42H 
-	MACRO-80 3.44	09-Dec-81	PAGE	1-31
-
-
   0809    20 18                         JR   NZ,L0823 
   080B    DF                            RST  18H 
   080C    20 42                         DEFM " B" 
@@ -1995,12 +1873,12 @@
   086C    DF                            RST  18H 
   086D    8D                            DEFB 0DH+80H 
   086E    18 D6                         JR   L0846 
+	MACRO-80 3.44	09-Dec-81	PAGE	1-30
+
+
                                 ;
   0870    CD 0441               L0870:  CALL L0441 
   0873    2A 185D               L0873:  LD   HL,(ARG2) 
-	MACRO-80 3.44	09-Dec-81	PAGE	1-32
-
-
   0876    09                            ADD  HL,BC 
   0877    2B                            DEC  HL 
   0878    DF                            RST  18H 
@@ -2058,12 +1936,12 @@
   08DA    38 02                         JR   C,L08DE 
   08DC    D6 37                         SUB  37H 
   08DE    ED 6F                 L08DE:  RLD 
+	MACRO-80 3.44	09-Dec-81	PAGE	1-31
+
+
   08E0    05                            DEC  B 
   08E1    28 2F                         JR   Z,L0912 
   08E3    CF                    L08E3:  RST  08H 
-	MACRO-80 3.44	09-Dec-81	PAGE	1-33
-
-
   08E4    CD 0496                       CALL L0496 
   08E7    38 FA                         JR   C,L08E3 
   08E9    18 EC                         JR   L08D7 
@@ -2121,12 +1999,12 @@
   093F    E5                            PUSH HL 
   0940    21 17BF                       LD   HL,17BFH 
   0943    ED 52                         SBC  HL,DE 
+	MACRO-80 3.44	09-Dec-81	PAGE	1-32
+
+
   0945    E1                            POP  HL 
   0946    30 0F                         JR   NC,L0957 
   0948    D9                            EXX 
-	MACRO-80 3.44	09-Dec-81	PAGE	1-34
-
-
   0949    21 1040                       LD   HL,1040H 
   094C    11 1000                       LD   DE,1000H 
   094F    01 07C0                       LD   BC,07C0H 
@@ -2184,12 +2062,12 @@
                                 ;
   0999    D9                    L0999:  EXX 
   099A    23                            INC  HL 
+	MACRO-80 3.44	09-Dec-81	PAGE	1-33
+
+
   099B    AF                            XOR  A 
   099C    12                            LD   (DE),A 
   099D    13                            INC  DE 
-	MACRO-80 3.44	09-Dec-81	PAGE	1-35
-
-
   099E    D9                            EXX 
   099F    1B                            DEC  DE 
   09A0    18 DB                         JR   L097D 
@@ -2247,12 +2125,12 @@
   09F6    DD E5                 L09F6:  PUSH IX 
   09F8    E1                            POP  HL 
   09F9    23                            INC  HL 
+	MACRO-80 3.44	09-Dec-81	PAGE	1-34
+
+
   09FA    18 B1                         JR   L09AD 
                                 ;
   09FC    DD E5                 L09FC:  PUSH IX 
-	MACRO-80 3.44	09-Dec-81	PAGE	1-36
-
-
   09FE    E1                            POP  HL 
   09FF    AF                            XOR  A 
   0A00    80                            ADD  A,B 
@@ -2310,12 +2188,12 @@
   0A50    11 1821                       LD   DE,IOBYTE    ;Speicherplatz vom I/O-Byte 
   0A53    1A                            LD   A,(DE)
   0A54    CD 0183                       CALL OUTHEX       ;Bildschirmausgabe I/O-Byte
+	MACRO-80 3.44	09-Dec-81	PAGE	1-35
+
+
   0A57    13                            INC  DE 
   0A58    C3 067E                       JP   INHEX4       ;Eingabe pruefen und I/O-Byte setzen
                                 ;
-	MACRO-80 3.44	09-Dec-81	PAGE	1-37
-
-
   0A5B    CD 0404               L0A5B:  CALL L0404 
   0A5E    C3 0A31                       JP   L0A31 
                                 ;
@@ -2373,12 +2251,12 @@
                                 ;
                                 ; ??? (TODO)
                                 ;
+	MACRO-80 3.44	09-Dec-81	PAGE	1-36
+
+
   0A98    D3 05                         OUT  (P05),A 
   0A9A    C9                            RET 
                                 ;
-	MACRO-80 3.44	09-Dec-81	PAGE	1-38
-
-
   0A9B                                  DEFS 4,0FFH       ;Platzhalter 4 Byte
                                 ;
                                 ; Funktion "I" --> Initialize
@@ -2436,12 +2314,12 @@
   0AE8    0A C5                         DEFB P0A,0C5H     ;PIO2 Port A Ctrl: A0, A2, A6, A7 sind Eingaenge
   0AEA    08 0A                         DEFB P08,0AH      ;PIO2 Port A Data: A1 und A3 auf High setzen
   0AEC    06 CF                         DEFB P06,0CFH     ;PIO1 Port A Ctrl: Mode 3
+	MACRO-80 3.44	09-Dec-81	PAGE	1-37
+
+
   0AEE    06 FF                         DEFB P06,0FFH     ;PIO1 Port A Ctrl: alles Eingaenge (von Tastatur)
   0AF0    06 07                         DEFB P06,07H      ;PIO1 Port A Ctrl: kein Interrupt
   0AF2    07 CF                         DEFB P07,0CFH     ;PIO1 Port B Ctrl: Mode 3
-	MACRO-80 3.44	09-Dec-81	PAGE	1-39
-
-
   0AF4    07 84                         DEFB P07,84H      ;PIO1 Port B Ctrl: B7 (TB in) und B2 (Grafikt.) sind Eingaenge
   0AF6    07 07                         DEFB P07,07H      ;PIO1 Port B Ctrl: kein Interrupt
   0AF8    14 00                         DEFB P14,00H      ;Modul-1: Konfigurationsregister ruecksetzen
@@ -2499,12 +2377,12 @@
   0B59    06 13                         LD   B,13H 
   0B5B    1A                    L0B5B:  LD   A,(DE) 
   0B5C    BE                            CP   (HL) 
+	MACRO-80 3.44	09-Dec-81	PAGE	1-38
+
+
   0B5D    28 04                         JR   Z,L0B63 
   0B5F    FE 20                         CP   20H 
   0B61    20 22                         JR   NZ,L0B85 
-	MACRO-80 3.44	09-Dec-81	PAGE	1-40
-
-
   0B63    23                    L0B63:  INC  HL 
   0B64    13                            INC  DE 
   0B65    10 F4                         DJNZ L0B5B 
@@ -2531,7 +2409,7 @@
                                 ;
   0B8F    FF                            DEFB 0FFH         ;Platzhalter 1 Byte
                                 ;
-                                        IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
+                                        IF MONI88 OR MONI88A
                                 ;
                                 ; UP 'Zeitschleife 18 ms' zur Tastaturentprellung
                                 ; -----------------------------------------------
@@ -2541,37 +2419,14 @@
   0B91    01 0481                       LD   BC,0481H     ;Zeitkonstante fuer 18ms
   0B94    C3 0121                       JP   MS30A
                                 ;
-                                        ENDIF
-                                        IFDEF MONI88A     ;Monitor 10/88 - Originalversion mit Anpassungen
+                                        ELSE              ;MONI11 OR MONI11A
                                 ;
-                                ; UP 'Zeitschleife 18 ms' zur Tastaturentprellung
-                                ; -----------------------------------------------
-                                ; (wird im Monitor 10/88 nicht verwendet, evtl. von extern?)
+                                ; die Zeitschleife gibt es im Monitor 2011 nicht mehr,
+                                ; dafuer steht hier der 2. Teil vom Kommando "Y"
                                 ;
-                                        PUSH BC
-                                        LD   BC,0481H     ;Zeitkonstante fuer 18ms
-                                        JP   MS30A
-                                ;
-                                        ENDIF
-                                        IFDEF MONI11      ;Monitor 10/88 - BWS-CPLD-Version 2011
-                                ;
-                                ; die Zeitschleife gibt es im Moni 2011 nicht mehr ...
-                                ;
-                                        DEFB 0FFH
-                                        DEFB 0FFH,0FFH,0FFH
-                                        DEFB 0FFH,0FFH,0FFH
-                                ;
-                                        ENDIF
-                                        IFDEF MONI11A     ;Monitor 10/88 - BWS-CPLD-Version mit Anpassungen
-                                ;
-                                ; die Zeitschleife gibt es im Moni 2021 nicht mehr ...
-	MACRO-80 3.44	09-Dec-81	PAGE	1-41
-
-
-                                ;
-                                        DEFB 0FFH
-                                        DEFB 0FFH,0FFH,0FFH
-                                        DEFB 0FFH,0FFH,0FFH
+                                ALTMO:  LD   (0FFFEH),HL  ;wird von Fkt. "Y" angesprungen
+                                        JP   0FFFEH       ;Start alternativer Monitor im RAM
+                                        DEFB 0FFH         ;1 Byte frei
                                 ;
                                         ENDIF
                                 ;
@@ -2585,6 +2440,9 @@
   0BA6    FE 3A                         CP   3AH 
   0BA8    1B                            DEC  DE 
   0BA9    28 FA                         JR   Z,L0BA5 
+	MACRO-80 3.44	09-Dec-81	PAGE	1-39
+
+
   0BAB    FE 2A                         CP   2AH 
   0BAD    20 04                         JR   NZ,L0BB3 
   0BAF    1A                            LD   A,(DE) 
@@ -2628,9 +2486,6 @@
   0BE8    33 31                         DEFM "31" 
   0BEA    91                            DEFB 11H+80H 
   0BEB    06 06                         LD   B,06H 
-	MACRO-80 3.44	09-Dec-81	PAGE	1-42
-
-
   0BED    7E                    L0BED:  LD   A,(HL) 
   0BEE    D7                            RST  10H 
   0BEF    23                            INC  HL 
@@ -2648,6 +2503,9 @@
   0C02    ED 52                         SBC  HL,DE 
   0C04    EB                            EX   DE,HL 
   0C05    D8                            RET  C 
+	MACRO-80 3.44	09-Dec-81	PAGE	1-40
+
+
   0C06    CD 0C10                       CALL L0C10 
   0C09    18 F2                         JR   L0BFD 
                                 ;
@@ -2691,9 +2549,6 @@
   0C4A    28 06                         JR   Z,L0C52 
   0C4C    06 03                         LD   B,03H 
   0C4E    10 FE                 L0C4E:  DJNZ L0C4E 
-	MACRO-80 3.44	09-Dec-81	PAGE	1-43
-
-
   0C50    18 EC                         JR   L0C3E 
                                 ;
   0C52    DD E5                 L0C52:  PUSH IX 
@@ -2711,6 +2566,9 @@
                                 ;
   0C68    CD 0C7A               L0C68:  CALL L0C7A 
   0C6B    06 0F                 L0C6B:  LD   B,0FH 
+	MACRO-80 3.44	09-Dec-81	PAGE	1-41
+
+
   0C6D    10 FE                 L0C6D:  DJNZ L0C6D 
   0C6F    CD 0C7A                       CALL L0C7A 
   0C72    0D                            DEC  C 
@@ -2754,9 +2612,6 @@
   0CB4    EB                            EX   DE,HL 
   0CB5    D8                            RET  C 
   0CB6    18 D5                         JR   L0C8D 
-	MACRO-80 3.44	09-Dec-81	PAGE	1-44
-
-
                                 ;
   0CB8                                  DEFS 5,0FFH       ;Platzhalter 5 Byte
                                 ;
@@ -2774,6 +2629,9 @@
   0CD6    20 F8                         JR   NZ,L0CD0 
   0CD8    0D                            DEC  C 
   0CD9    28 0C                         JR   Z,L0CE7 
+	MACRO-80 3.44	09-Dec-81	PAGE	1-42
+
+
   0CDB    DB 05                 L0CDB:  IN   A,(P05) 
   0CDD    A8                            XOR  B 
   0CDE    CB 7F                         BIT  7,A 
@@ -2817,9 +2675,6 @@
   0D20    23                            INC  HL 
   0D21    72                            LD   (HL),D 
   0D22    2B                            DEC  HL 
-	MACRO-80 3.44	09-Dec-81	PAGE	1-45
-
-
   0D23    08                    L0D23:  EX   AF,AF' 
   0D24    7B                            LD   A,E 
   0D25    BE                            CP   (HL) 
@@ -2837,6 +2692,9 @@
   0D34    3D                    L0D34:  DEC  A 
   0D35    20 FD                         JR   NZ,L0D34 
   0D37    2B                            DEC  HL 
+	MACRO-80 3.44	09-Dec-81	PAGE	1-43
+
+
   0D38    23                    L0D38:  INC  HL 
   0D39    3E 02                         LD   A,02H 
   0D3B    3D                    L0D3B:  DEC  A 
@@ -2880,9 +2738,6 @@
   0D6F    37                    L0D6F:  SCF 
   0D70    CB 1A                 L0D70:  RR   D 
   0D72    CB 1B                         RR   E 
-	MACRO-80 3.44	09-Dec-81	PAGE	1-46
-
-
   0D74    CD 0D52                       CALL L0D52 
   0D77    2D                            DEC  L 
   0D78    28 07                         JR   Z,L0D81 
@@ -2900,6 +2755,9 @@
   0D8C    06 13                         LD   B,13H 
   0D8E    7E                    L0D8E:  LD   A,(HL) 
   0D8F    D7                            RST  10H 
+	MACRO-80 3.44	09-Dec-81	PAGE	1-44
+
+
   0D90    23                            INC  HL 
   0D91    10 FB                         DJNZ L0D8E 
   0D93    DF                            RST  18H 
@@ -2943,9 +2801,6 @@
   0DD2    CD 0268                       CALL ERROR 
   0DD5    0F                            RRCA 
   0DD6    47                            LD   B,A 
-	MACRO-80 3.44	09-Dec-81	PAGE	1-47
-
-
   0DD7    D9                            EXX 
   0DD8    95                            SUB  L 
   0DD9    D9                            EXX 
@@ -2963,6 +2818,9 @@
   0DE8    A0                            DEFB 20H+80H 
   0DE9    CD 019A                       CALL OUTHL 
   0DEC    10 F3                         DJNZ L0DE1 
+	MACRO-80 3.44	09-Dec-81	PAGE	1-45
+
+
   0DEE    05                            DEC  B 
   0DEF    C9                            RET 
                                 ;
@@ -3006,9 +2864,6 @@
   0E26    20 FA                         JR   NZ,V24OU4    ;warten auf fallende Flanke an A2
   0E28    06 0A                 V24OU5: LD   B,10         ;10 Durchlaeufe Bit-Ausgabe
   0E2A    CB 5E                         BIT  3,(HL)       ;Anzahl der Stopbits?
-	MACRO-80 3.44	09-Dec-81	PAGE	1-48
-
-
   0E2C    28 01                         JR   Z,V24OU6     ;1 Stopbit
   0E2E    04                            INC  B            ;2 Stopbits --> 11 Durchlaeufe
   0E2F    37                    V24OU6: SCF               ;Carry-Flag setzen (Startbit)
@@ -3026,6 +2881,9 @@
   0E43    F1                            POP  AF 
   0E44    C1                            POP  BC 
   0E45    D1                            POP  DE 
+	MACRO-80 3.44	09-Dec-81	PAGE	1-46
+
+
   0E46    E1                            POP  HL 
   0E47    C9                            RET 
                                 ;
@@ -3055,9 +2913,9 @@
   0E66    21 1858                       LD   HL,1858H 
   0E69    36 FF                         LD   (HL),0FFH
   0E6B    11 1859                       LD   DE,1859H 
-                                        IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
+                                        IF MONI88
   0E6E    01 E7A7                       LD   BC,0E7A7H    ;loeschen bis 0FFFFH
-                                        ELSE              ;alle anderen Monitor-Versionen
+                                        ELSE
                                         LD   BC,0E6A7H    ;loeschen bis 0FEFFH
                                         ENDIF
   0E71    ED B0                         LDIR 
@@ -3069,9 +2927,6 @@
   0E7F    C9                            RET
                                 ;
                                 ;
-	MACRO-80 3.44	09-Dec-81	PAGE	1-49
-
-
                                 ; Funktion "U" --> Port lesen (TODO)
                                 ;
   0E80    00 09 55 0D                   DEFB 00H,09H,55H,0DH;
@@ -3089,6 +2944,9 @@
   0E9E    28 FB                         JR   Z,FKTU2      ;warten, bis Taste gedrueckt
   0EA0    FE D1                         CP   0D1H         ;"Q"?
   0EA2    C8                            RET  Z            ;ja --> Ende
+	MACRO-80 3.44	09-Dec-81	PAGE	1-47
+
+
   0EA3    18 EB                         JR   FKTU1 
                                 ;
                                 ;
@@ -3101,21 +2959,21 @@
   0EAC    C9                            RET 
                                 ;
                                 ;
-                                ;
-                                        IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
+                                        IF MONI88
   0EAD                                  DEFS 7,0FFH       ;Platzhalter 7 Byte
                                         ENDIF
-                                        IFDEF MONI88A     ;Monitor 10/88 - Originalversion mit Anpassungen
+                                        IF MONI88A
                                 ;
                                 ;
-                                ; Funktion "X" --> AC1 ROM-Bank aufrufen (E000H bis FEFFH) - Teil 2
+                                ; Funktion "X" --> Frieders ROM-Bank aufrufen - Teil 2
                                 ;
                                 PROGX3: OUT  (0C1H),A     ;HWT EPROM + LED
                                         OUT  (0C0H),A     ;NWT EPROM
                                         JP   0E000H       ;Programmstart Prog-X
                                 ;
                                         ENDIF
-                                        IFDEF MONI11      ;Monitor 10/88 - BWS-CPLD-Version 2011
+                                        IF MONI11 OR MONI11A
+                                ;
                                 ;
                                 ; Funktion "8" --> PIO2-Karte: Bank 3 einschalten
                                 ;
@@ -3123,18 +2981,7 @@
                                         JP   FKT8 
                                 ;
                                         ENDIF
-                                        IFDEF MONI11A     ;Monitor 10/88 - BWS-CPLD-Version mit Anpassungen
                                 ;
-                                ; Funktion "8" --> PIO2-Karte: Bank 3 einschalten
-                                ;
-                                        DEFB 00H,09H,38H,0DH 
-                                        JP   FKT8 
-                                ;
-                                        ENDIF
-                                ;
-	MACRO-80 3.44	09-Dec-81	PAGE	1-50
-
-
                                 ;
                                 ; UP 'Joy', Abfrage Joystick 1
                                 ; ----------------------------
@@ -3160,6 +3007,9 @@
   0EC8    00 09 3F 0D                   DEFB 00H,09H,3FH,0DH 
   0ECC    DF                            RST  18H 
   0ECD    48 65 6C 70                   DEFM "Help:" 
+	MACRO-80 3.44	09-Dec-81	PAGE	1-48
+
+
   0ED1    3A                    
   0ED2    8D                            DEFB 0DH+80H 
   0ED3    21 0200                       LD   HL,0200H 
@@ -3195,9 +3045,6 @@
   0EFC    FE 18                         CP   18H          ;Ctrl-X schaltet zusaetzlich V.24 ein
   0EFE    28 07                         JR   Z,RST10C 
   0F00    FE 19                         CP   19H          ;Ctrl-Y schaltet Ein/Ausgabe auf Standard
-	MACRO-80 3.44	09-Dec-81	PAGE	1-51
-
-
   0F02    20 07                         JR   NZ,RST10D 
   0F04    36 11                         LD   (HL),11H 
   0F06    21                            DEFB 21H          ;LD HL,0EECBH + nxt. Befehl ueberspringen!!!
@@ -3223,6 +3070,9 @@
   0F26    DF                            RST  18H 
   0F27    0B 86                         DEFB 0BH,06H+80H 
   0F29    2A 1800                       LD   HL,(KURPOS) 
+	MACRO-80 3.44	09-Dec-81	PAGE	1-49
+
+
   0F2C    DF                            RST  18H 
   0F2D    0E                            DEFB 0EH 
   0F2E    30 30 35 39                   DEFM "0059" 
@@ -3258,9 +3108,6 @@
   0F61    3C                            INC  A 
   0F62    11 0800                       LD   DE,0800H 
   0F65    47                            LD   B,A 
-	MACRO-80 3.44	09-Dec-81	PAGE	1-52
-
-
   0F66    19                    L0F66:  ADD  HL,DE 
   0F67    10 FD                         DJNZ L0F66 
   0F69    11 17FF               L0F69:  LD   DE,17FFH 
@@ -3286,10 +3133,13 @@
   0F8B    FE 0A                         CP   0AH 
   0F8D    C0                            RET  NZ 
   0F8E    01 F000                       LD   BC,0F000H
+	MACRO-80 3.44	09-Dec-81	PAGE	1-50
+
+
   0F91    09                            ADD  HL,BC 
   0F92    18 D5                         JR   L0F69 
                                 ;
-                                        IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
+                                        IF MONI88
                                 ;
                                 ;
                                 ; ungenutzte CRC-Routine
@@ -3318,19 +3168,16 @@
   0FF1    D3 14                         OUT  (P14),A      ;Modul-1: EPROM mit Basic
   0FF3    C3 5FCC                       JP   5FCCH        ;Sprung ins Basic-Programm
                                 ;
-                                        ENDIF             ;Monitor 10/88 - Originalversion 1988
-                                        IFDEF MONI88A     ;Monitor 10/88 - Originalversion mit Anpassungen
+                                        ENDIF
+                                        IF MONI88A
                                 ;
-	MACRO-80 3.44	09-Dec-81	PAGE	1-53
-
-
                                 ;
                                 ; ungenutzte CRC-Routine
                                 ;
                                         DEFS 63,0FFH      ;Platzhalter 63 Byte
                                 ;
                                 ;
-                                ; Funktion "X" --> AC1 ROM-Bank aufrufen (E000H bis FEFFH) - Teil 1
+                                ; Funktion "X" --> Frieders ROM-Bank aufrufen - Teil 1
                                 ;
                                         DEFB 00H,09H,58H,0DH 
                                 PROGX1: LD   DE,8000H     ;Pointer auf EPROM + LED
@@ -3349,11 +3196,14 @@
                                         DEC  BC
                                         LD   A,B
                                         OR   C
+	MACRO-80 3.44	09-Dec-81	PAGE	1-51
+
+
                                         JR   NZ,PROGX2
                                         JP   PROGX3       ;zum Teil 2 der Funktion
                                 ;
-                                        ENDIF             ;Monitor 10/88 - Originalversion mit Anpassungen
-                                        IFDEF MONI11      ;Monitor 10/88 - BWS-CPLD-Version 2011
+                                        ENDIF
+                                        IF MONI11 OR MONI11A
                                 ;
                                 ; Funktion "!" --> Farbbyte einstellen
                                 ;
@@ -3365,91 +3215,15 @@
                                 ;
                                 ; Farb-Initialisierung des CPLD
                                 ;
+                                        IF MONI11
                                 FINIT:  LD   A,02H        ;Farbbyte: nach Reset = 02H
-                                FINIT1: PUSH AF 
-                                        XOR  A            ;Wert fuer Monochrom-BWS
-                                        LD   (COLOR),A    ;Merkzelle fuer Farbbyte im RAM schreiben
-                                        POP  AF 
-                                        LD   C,PF0        ;I/O-Adresse COLOR-BWS
-                                        IN   B,(C)        ;Konfigbyte COLOR-BWS lesen
-                                        INC  B            ;fuer COLOR-BWS ist B!=0
-                                        RET  Z            ;kein COLOR-BWS vorhanden --> Ende
-                                        DEC  B 
-                                        LD   D,B 
-                                        SET  2,D          ;Konfigbyte COLOR-BWS: Farb-RAM aktiv
-                                        LD   HL,1000H 
-                                        LD   E,(HL) 
-                                        OUT  (C),D        ;COLOR-BWS auf Farb-RAM umschalten
-                                        LD   (HL),A       ;Farbe auf 1000h setzen
-                                        CP   (HL)         ;ist ein Farb-RAM eingebaut?
-                                        OUT  (C),B        ;Konfigbyte COLOR-BWS: Text-RAM aktiv
-                                        LD   (HL),E       ;Zeichen auf 1000h zurueckschreiben
-	MACRO-80 3.44	09-Dec-81	PAGE	1-54
-
-
-                                        RET  NZ           ;Farbe hat nicht geklappt --> Ende
-                                        OUT  (C),D        ;nochmal COLOR-BWS auf Farb-RAM umschalten
-                                        PUSH BC 
-                                        LD   DE,1001H 
-                                        LD   BC,07FFH 
-                                        LDIR              ;Farbe in den restlichen BWS-RAM schreiben
-                                        LD   A,(HL)       ;Farbe aus 17FEh ruecklesen
-                                        POP  BC 
-                                        OUT  (C),B        ;Konfigbyte COLOR-BWS: Text-RAM aktiv
-                                        LD   (COLOR),A    ;Merkzelle fuer Farbbyte im RAM schreiben
-                                        RET 
-                                ;
-                                ;
-                                ; Funktion "7" --> PIO2-Karte: Bank 2 einschalten
-                                ;
-                                        DEFB 00H,09H,37H,0DH 
-                                        LD   A,20H        ;ehemals 10H, war falsch!!
-                                        OUT  (P0F),A 
-                                        JP   2000H        ;Programmstart von UserProg auf 2000H
-                                ;
-                                ;
-                                ; Funktion "r" --> Basic-Warmstart
-                                ;
-                                        DEFB 00H,09H,72H,0DH 
-                                        LD   A,02H
-                                        OUT  (P14),A      ;Modul-1: EPROM mit Basic
-                                        JP   5FD5H        ;Sprung ins Basic-Programm
-                                ;
-                                ;
-                                ; Funktion "X" --> Programmpaket X
-                                ;
-                                        DEFB 00H,09H,58H,0DH 
-                                        JP   JUMPX
-                                ;
-                                ;
-                                ; Funktion "b" --> Basic-Kaltstart
-                                ;
-                                        DEFB 09H,62H,0DH  ;die 00H wird vom letzten Befehl genutzt
-                                        LD   A,02H
-                                        OUT  (P14),A      ;Modul-1: EPROM mit Basic
-                                        JP   5FCCH        ;Sprung ins Basic-Programm
-                                ;
-                                        ENDIF             ;Monitor 10/88 - BWS-CPLD-Version 2011
-                                        IFDEF MONI11A     ;Monitor 10/88 - BWS-CPLD-Version mit Anpassungen
-                                ;
-                                ; Funktion "!" --> Farbbyte einstellen
-                                ;
-                                        DEFB 00H,09H,21H,0DH
-                                        LD   A,(ARG1) 
-                                        OR   A            ;wenn ARG1=0 ist --> Vorgabewert nehmen
-                                        JR   NZ,FINIT1 
-                                ;
-                                ;
-                                ; Farb-Initialisierung des CPLD
-                                ;
+                                        ELSE
                                 FINIT:  LD   A,4FH        ;Farbbyte: nach Reset = 4FH
+                                        ENDIF
                                 FINIT1: PUSH AF 
                                         XOR  A            ;Wert fuer Monochrom-BWS
                                         LD   (COLOR),A    ;Merkzelle fuer Farbbyte im RAM schreiben
                                         POP  AF 
-	MACRO-80 3.44	09-Dec-81	PAGE	1-55
-
-
                                         LD   C,PF0        ;I/O-Adresse COLOR-BWS
                                         IN   B,(C)        ;Konfigbyte COLOR-BWS lesen
                                         INC  B            ;fuer COLOR-BWS ist B!=0
@@ -3485,6 +3259,9 @@
                                         JP   2000H        ;Programmstart von UserProg auf 2000H
                                 ;
                                 ;
+	MACRO-80 3.44	09-Dec-81	PAGE	1-52
+
+
                                 ; Funktion "r" --> Basic-Warmstart
                                 ;
                                         DEFB 00H,09H,72H,0DH 
@@ -3506,13 +3283,10 @@
                                         OUT  (P14),A      ;Modul-1: EPROM mit Basic
                                         JP   5FCCH        ;Sprung ins Basic-Programm
                                 ;
-                                        ENDIF             ;Monitor 10/88 - BWS-CPLD-Version mit Anpassungen
+                                        ENDIF
                                 ;
                                 ;
                                 ; Funktion "<SPACE>" --> nix tun...
-	MACRO-80 3.44	09-Dec-81	PAGE	1-56
-
-
                                 ;
   0FF6    00 09 20 0D                   DEFB 00H,09H,20H,0DH 
   0FFA    C9                            RET 
@@ -3625,7 +3399,8 @@ Symbols:
 0DC9 	L0DC9           0DE1 	L0DE1           0DF0 	L0DF0           
 0EA5 	L0EA5           0ED9 	L0ED9           0F48 	L0F48           
 0F66 	L0F66           0F69 	L0F69           0F6C 	L0F6C           
-0001 	MONI88          011D 	MS30            0121 	MS30A           
+0000 	MONI11          0000 	MONI11A         0001 	MONI88          
+0000 	MONI88A         011D 	MS30            0121 	MS30A           
 00D6 	NOTAST          010C 	NOV24           0183 	OUTHEX          
 019A 	OUTHL           0589 	OUTHL1          058C 	OUTHL2          
 0ACA 	OUTHL3          018C 	OUTHX1          0197 	OUTHX2          
@@ -3650,10 +3425,10 @@ Symbols:
 02C5 	UPTAS5          0297 	UPTAST          0287 	UPTON           
 0288 	UPTON1          0290 	UPTON2          01D6 	V24IN           
 00D9 	V24IN1          00E1 	V24IN2          00E8 	V24IN3          
-00EF 	V24IN4          00F6 	V24IN5          00F9 	V24IN6          
 	MACRO-80 3.44	09-Dec-81	PAGE	S-2
 
 
+00EF 	V24IN4          00F6 	V24IN5          00F9 	V24IN6          
 0E0C 	V24OU1          0E12 	V24OU2          0E1A 	V24OU3          
 0E22 	V24OU4          0E28 	V24OU5          0E2F 	V24OU6          
 0E30 	V24OU7          0E37 	V24OU8          0DF9 	V24OUT          
@@ -3664,5 +3439,4 @@ Symbols:
 No Fatal error(s)
 
 
-          01D6 	V24IN           
-00D9 	V24IN1          00E1 	V24IN2   
+

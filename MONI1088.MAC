@@ -1,6 +1,6 @@
 ; ************************************************************
 ; *                                                          *
-; *  MONITOR 10/88 fuer den AC 1     Version vom 23.04.2025  *
+; *  MONITOR 10/88 fuer den AC 1     Version vom 12.05.2026  *
 ; *                                                          *
 ; ************************************************************
 ;
@@ -15,10 +15,10 @@
 ; - ungenutzte CRC-Routine auf 0F94H entfernt
 ;
 ; MONI88A - zus. Aenderungen an der Originalversion 1988:
-; - Backspace/DEL mit 7FH (Adr. 0323H)
+; - Backspace/DEL mit 7FH (Adr. 0323H und 0488H)
 ; - RAM loeschen mit Kommando "p" von 1858H bis 0FEFFH
 ; - die Monitorkommandos "X", "b" und "r" wurden entfernt
-; - neues Monitorkommando "X": Start der AC1 ROM-Bank
+; - neues Monitorkommando "X": Start von Frieders ROM-Bank
 ; - PIO2 belegt die I/O-Adressen 18H bis 1BH
 ;
 ; MONI11 - Korrekturen an der BWS-CPLD-Version 2011:
@@ -26,35 +26,36 @@
 ;   Adresse 0FD4H von 10H auf 20H korrigiert
 ; - fehlerhafter Interruptvektor fuer CTC Kanal 0
 ;   von 5B5BH auf 075BH korrigiert
+; - der Aufruf des alternativen Monitors "Y" laeuft
+;   nicht mehr ueber die Interruptvektoren der CTC
 ;
 ; MONI11A - zus. Aenderungen an der BWS-CPLD-Version 2011:
 ; - Farbbyte 0F9FH ist 4FH (= weiss auf blauem Hintergrund)
 ; - V.24-Kontrollregister (Adr. 023EH) wieder auf 02H
 ;
-;
-; ***************************************************
-; *  Wichtig: Hier muss die gewuenschte             *
-; *           Monitorversion auskommentiert werden  *
-; ***************************************************
+; ************************************************
+; *  Wichtig: Hier muss die gewuenschte          *
+; *           Monitorversion selektiert werden:  *
+; ************************************************
 MONI88  EQU  1       ;Monitor 10/88 - Originalversion 1988
-;MONI88A EQU  1       ;Monitor 10/88 - Originalversion mit Anpassungen
-;MONI11  EQU  1       ;Monitor 10/88 - BWS-CPLD-Version 2011
-;MONI11A EQU  1       ;Monitor 10/88 - BWS-CPLD-Version mit Anpassungen
+MONI88A EQU  0       ;Monitor 10/88 - Originalversion mit Anpassungen
+MONI11  EQU  0       ;Monitor 10/88 - BWS-CPLD-Version 2011
+MONI11A EQU  0       ;Monitor 10/88 - BWS-CPLD-Version mit Anpassungen
 ;
 ;
         PAGE 64
 ;
         IF1
-        IFDEF MONI88
+        IF MONI88
         .PRINTX 'Monitor 10/88 - Originalversion 1988'
         ENDIF
-        IFDEF MONI88A
+        IF MONI88A
         .PRINTX 'Monitor 10/88 - Originalversion mit Anpassungen'
         ENDIF
-        IFDEF MONI11
+        IF MONI11
         .PRINTX 'Monitor 10/88 - BWS-CPLD-Version 2011'
         ENDIF
-        IFDEF MONI11A
+        IF MONI11A
         .PRINTX 'Monitor 10/88 - BWS-CPLD-Version mit Anpassungen'
         ENDIF
         .PRINTX 'PASS 1'
@@ -88,7 +89,7 @@ P04     EQU  04H          ;PIO 1 - Port A (Daten)
 P05     EQU  05H          ;PIO 1 - Port B (Daten)
 P06     EQU  06H          ;PIO 1 - Port A (Control)
 P07     EQU  07H          ;PIO 1 - Port B (Control)
-IFDEF MONI88A             ;MONI88A hat PIO2 I/O-Adr. 18H...1BH
+IF MONI88A                ;MONI88A hat PIO2 I/O-Adr. 18H...1BH
 P08     EQU  18H          ;PIO 2 - Port A (Daten)
 P09     EQU  19H          ;PIO 2 - Port B (Daten)
 P0A     EQU  1AH          ;PIO 2 - Port A (Control)
@@ -158,22 +159,9 @@ INIT2:  LD   DE,KURPOS
 L0020:  JP   180BH        ;Sprungtabelle 180BH
 ;
 ;
-        IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
+        IF MONI88 OR MONI88A
         DEFS 5,0FFH       ;Platzhalter 5 Byte
-        ENDIF
-        IFDEF MONI88A     ;Monitor 10/88 - Originalversion mit Anpassungen
-        DEFS 5,0FFH       ;Platzhalter 5 Byte
-        ENDIF
-        IFDEF MONI11      ;Monitor 10/88 - BWS-CPLD-Version 2011
-;
-; Codeschnipsel zur Funktion "8"
-; ------------------------------
-;
-FKT8:   LD   A,40H        ;Codeschnipsel zur Funktion "8"
-        JP   FKT0         ;A auf Port 0FH ausgeben
-;
-        ENDIF
-        IFDEF MONI11A     ;Monitor 10/88 - BWS-CPLD-Version mit Anpassungen
+        ELSE              ;MONI11 OR MONI11A
 ;
 ; Codeschnipsel zur Funktion "8"
 ; ------------------------------
@@ -237,16 +225,9 @@ INIT5:  LD   (HL),0FFH    ;HL=1800H
         LD   HL,SPTAB     ;Sprungtabelle = 0220H
         LD   DE,1802H     ;Ziel = 1802H
         LDIR 
-        IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
+        IF MONI88 OR MONI88A
         CALL UPTAST       ;Taste gedrueckt?
-        ENDIF
-        IFDEF MONI88A     ;Monitor 10/88 - Originalversion mit Anpassungen
-        CALL UPTAST       ;Taste gedrueckt?
-        ENDIF
-        IFDEF MONI11      ;Monitor 10/88 - BWS-CPLD-Version 2011
-        CALL FARBIN       ;CALL Farb-Initialisierung
-        ENDIF
-        IFDEF MONI11A     ;Monitor 10/88 - BWS-CPLD-Version mit Anpassungen
+        ELSE              ;MONI11 OR MONI11A
         CALL FARBIN       ;CALL Farb-Initialisierung
         ENDIF
         JR   NZ,INIT6     ;Taste gedrueckt (nur Originalversion 1988)
@@ -266,19 +247,10 @@ INIT7:  XOR  A
         OUT  (P14),A      ;Modul-1: Konfigurationsregister ruecksetzen
         RST  18H 
         DEFB 0CH,0DH,0FH,0FH 
-        IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
+        IF MONI88 OR MONI88A
         DEFM "AC 1 * MONITOR *" 
         DEFM " U880  * (10/88)" 
-        ENDIF
-        IFDEF MONI88A     ;Monitor 10/88 - Originalversion mit Anpassungen
-        DEFM "AC 1 * MONITOR *" 
-        DEFM " U880  * (10/88)" 
-        ENDIF
-        IFDEF MONI11      ;Monitor 10/88 - BWS-CPLD-Version 2011
-        DEFM "AC 1 * MONITOR (" 
-        DEFM "10/88) * 11/2011" 
-        ENDIF
-        IFDEF MONI11A     ;Monitor 10/88 - BWS-CPLD-Version mit Anpassungen
+        ELSE              ;MONI11 OR MONI11A
         DEFM "AC 1 * MONITOR (" 
         DEFM "10/88) * 11/2011" 
         ENDIF
@@ -379,21 +351,10 @@ NOV24:  RRCA              ;Rotiere A-Register rechts
 ; Start vom Programmpaket X
 ; -------------------------
 ;
-        IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
-PROGX:  LD   A,01H 
-        OUT  (P14),A      ;Modul-1: EPROM mit Programmpaket X
-        JP   0E000H       ;Sprung zum Programmpaket X
-        ENDIF
-        IFDEF MONI88A     ;Monitor 10/88 - Originalversion mit Anpassungen
-PROGX:  JP   PROGX1       ;Sprung zur AC1 ROM-Bank
+        IF MONI88A
+PROGX:  JP   PROGX1       ;Sprung zu Frieders ROM-Bank
         DEFS 4,0FFH       ;Platzhalter 4 Byte
-        ENDIF
-        IFDEF MONI11      ;Monitor 10/88 - BWS-CPLD-Version 2011
-PROGX:  LD   A,01H 
-        OUT  (P14),A      ;Modul-1: EPROM mit Programmpaket X
-        JP   0E000H       ;Sprung zum Programmpaket X
-        ENDIF
-        IFDEF MONI11A     ;Monitor 10/88 - BWS-CPLD-Version mit Anpassungen
+        ELSE
 PROGX:  LD   A,01H 
         OUT  (P14),A      ;Modul-1: EPROM mit Programmpaket X
         JP   0E000H       ;Sprung zum Programmpaket X
@@ -649,19 +610,15 @@ SPTAB:  JP   RST08        ;Einsprungpunkt fuer RST 08H
         JP   BREAK        ;Einsprungpunkt fuer NMI 
         DEFB 0FFH,0FFH    ;Zwischenspeicher 'Inline'
         DEFM "SCH"        ;Warmstartcode
-        IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
+        IF MONI88 OR MONI88A
         DEFB 0AFH         ;Warmstartcode
         DEFB 02H          ;Kommando-Code V.24 (9600 Baud)
         ENDIF
-        IFDEF MONI88A     ;Monitor 10/88 - Originalversion mit Anpassungen
-        DEFB 0AFH         ;Warmstartcode
-        DEFB 02H          ;Kommando-Code V.24 (9600 Baud)
-        ENDIF
-        IFDEF MONI11      ;Monitor 10/88 - BWS-CPLD-Version 2011
+        IF MONI11
         DEFB 00H          ;Farb-Byte (0 = kein Color-BWS)
         DEFB 43H          ;Kommando-Code V.24 (4800 Baud)
         ENDIF
-        IFDEF MONI11A     ;Monitor 10/88 - BWS-CPLD-Version mit Anpassungen
+        IF MONI11A
         DEFB 00H          ;Farb-Byte (0 = kein Color-BWS)
         DEFB 02H          ;Kommando-Code V.24 (9600 Baud)
         ENDIF
@@ -796,36 +753,9 @@ UPTAS5: DEC  A
         RET               ;auf den Adressbus
 ;
 ;
-        IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
+        IF MONI88 OR MONI88A
         DEFS 21,0FFH      ;Platzhalter 21 Byte
-        ENDIF
-        IFDEF MONI88A     ;Monitor 10/88 - Originalversion mit Anpassungen
-        DEFS 21,0FFH      ;Platzhalter 21 Byte
-        ENDIF
-        IFDEF MONI11      ;Monitor 10/88 - BWS-CPLD-Version 2011
-;
-; Codeschnipsel fuer Farb-Initialisierung
-;
-FARBIN: CALL FINIT        ;Farb-Initialisierung 
-        JR   UPTAST       ;Taste gedrueckt?
-;
-;
-; Funktion "6" --> PIO2-Karte: Bank 1 einschalten
-;
-        DEFB 00H,09H,36H,0DH 
-        LD   A,10H 
-        JR   FKT0         ;A auf Port 0FH ausgeben
-;
-;
-; Funktion "0" --> PIO2-Karte: EPROM ausblenden
-;
-        DEFB 00H,09H,30H,0DH 
-        XOR  A
-FKT0:   OUT  (P0F),A 
-        RET 
-;
-        ENDIF
-        IFDEF MONI11A     ;Monitor 10/88 - BWS-CPLD-Version mit Anpassungen
+        ELSE              ;MONI11 OR MONI11A
 ;
 ; Codeschnipsel fuer Farb-Initialisierung
 ;
@@ -860,40 +790,10 @@ ZGUMS:  IN   A,(P05)
 ;
 ; Interruptvektoren fuer die CTC auf 02F8H ff.
 ;
-        IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
         DEFB 5BH,07H      ;Interruptvektor CTC Kanal 0
         DEFB 0FFH,0FFH    ;Interruptvektor CTC Kanal 1
         DEFB 0FFH,0FFH    ;Interruptvektor CTC Kanal 2
         DEFB 0FFH,0FFH    ;Interruptvektor CTC Kanal 3
-        ENDIF
-        IFDEF MONI88A     ;Monitor 10/88 - Originalversion mit Anpassungen
-        DEFB 5BH,07H      ;Interruptvektor CTC Kanal 0
-        DEFB 0FFH,0FFH    ;Interruptvektor CTC Kanal 1
-        DEFB 0FFH,0FFH    ;Interruptvektor CTC Kanal 2
-        DEFB 0FFH,0FFH    ;Interruptvektor CTC Kanal 3
-        ENDIF
-        IFDEF MONI11      ;Monitor 10/88 - BWS-CPLD-Version 2011
-;
-        DEFB 5BH,07H      ;Interruptvektor CTC Kanal 0
-;
-; Die Interruptvektoren CTC Kanal 1-3 wurden geopfert fuer:
-; RAM von 0000H bis 0FFFH einschalten
-;
-ALTMO:  LD   (0FFFEH),HL  ;wird von Fkt. "Y" angesprungen
-        JP   0FFFEH       ;Start alternativer Monitor im RAM
-;
-        ENDIF
-        IFDEF MONI11A     ;Monitor 10/88 - BWS-CPLD-Version mit Anpassungen
-;
-        DEFB 5BH,07H      ;Interruptvektor CTC Kanal 0
-;
-; Die Interruptvektoren CTC Kanal 1-3 wurden geopfert fuer:
-; RAM von 0000H bis 0FFFH einschalten
-;
-ALTMO:  LD   (0FFFEH),HL  ;wird von Fkt. "Y" angesprungen
-        JP   0FFFEH       ;Start alternativer Monitor im RAM 
-;
-        ENDIF
 ;
 ;
 ; Funktion Ausgabe ueber Bildschirm - Teil 3
@@ -920,9 +820,9 @@ FKT33D: LD   (HL),01H     ;nein
         EX   DE,HL        ;Kursorposition in HL, Stack in DE
         CP   1AH          ;^Z = Zeichensatz umschalten
         JR   Z,ZGUMS 
-        IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
+        IF MONI88
         CP   5FH          ;Backspace/DEL mit 5FH
-        ELSE              ;alle anderen Monitor-Versionen
+        ELSE
         CP   7FH          ;Backspace/DEL mit 7FH
         ENDIF
         JR   Z,DELETE 
@@ -1220,9 +1120,9 @@ L047A:  RST  10H
         DEFB 06H+80H 
         RET 
 ;
-        IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
+        IF MONI88
 L0487:  CP   5FH          ;Backspace/DEL mit 5FH
-        ELSE              ;alle anderen Monitor-Versionen
+        ELSE
 L0487:  CP   7FH          ;Backspace/DEL mit 7FH
         ENDIF
         JR   Z,L0494 
@@ -1265,31 +1165,15 @@ L04B5:  INC  DE
         RET 
 ;
 ;
-        IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
+        IF MONI88 OR MONI88A
         DEFS 17,0FFH      ;Platzhalter 17 Byte
-        ENDIF
-        IFDEF MONI88A     ;Monitor 10/88 - Originalversion mit Anpassungen
-        DEFS 17,0FFH      ;Platzhalter 17 Byte
-        ENDIF
-        IFDEF MONI11      ;Monitor 10/88 - BWS-CPLD-Version 2011
+        ELSE              ;MONI11 OR MONI11A
 ;
 ; Funktion "Y" --> alternativer Monitor im RAM
 ;
         DEFB 00H,09H,59H,0DH 
         CALL ARGLD        ;ARG1-->HL ARG2-->DE ARG3-->BC
         LD   B,10H        ;BC = 1000H, DE = 0000H
-        LDIR 
-        LD   HL,16D3H     ;OUT (P16),A --> RAM einblenden
-        JP   ALTMO 
-;
-        ENDIF
-        IFDEF MONI11A     ;Monitor 10/88 - BWS-CPLD-Version mit Anpassungen
-;
-; Funktion "Y" --> alternativer Monitor im RAM
-;
-        DEFB 00H,09H,59H,0DH 
-        CALL ARGLD        ;ARG1-->HL ARG2-->DE ARG3-->BC
-        LD   B,10H        ;BC = 1000H, DE = 0000H 
         LDIR 
         LD   HL,16D3H     ;OUT (P16),A --> RAM einblenden
         JP   ALTMO 
@@ -2390,7 +2274,7 @@ L0B85:  CALL L0DC9
 ;
         DEFB 0FFH         ;Platzhalter 1 Byte
 ;
-        IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
+        IF MONI88 OR MONI88A
 ;
 ; UP 'Zeitschleife 18 ms' zur Tastaturentprellung
 ; -----------------------------------------------
@@ -2400,34 +2284,14 @@ L0B85:  CALL L0DC9
         LD   BC,0481H     ;Zeitkonstante fuer 18ms
         JP   MS30A
 ;
-        ENDIF
-        IFDEF MONI88A     ;Monitor 10/88 - Originalversion mit Anpassungen
+        ELSE              ;MONI11 OR MONI11A
 ;
-; UP 'Zeitschleife 18 ms' zur Tastaturentprellung
-; -----------------------------------------------
-; (wird im Monitor 10/88 nicht verwendet, evtl. von extern?)
+; die Zeitschleife gibt es im Monitor 2011 nicht mehr,
+; dafuer steht hier der 2. Teil vom Kommando "Y"
 ;
-        PUSH BC
-        LD   BC,0481H     ;Zeitkonstante fuer 18ms
-        JP   MS30A
-;
-        ENDIF
-        IFDEF MONI11      ;Monitor 10/88 - BWS-CPLD-Version 2011
-;
-; die Zeitschleife gibt es im Moni 2011 nicht mehr ...
-;
-        DEFB 0FFH
-        DEFB 0FFH,0FFH,0FFH
-        DEFB 0FFH,0FFH,0FFH
-;
-        ENDIF
-        IFDEF MONI11A     ;Monitor 10/88 - BWS-CPLD-Version mit Anpassungen
-;
-; die Zeitschleife gibt es im Moni 2021 nicht mehr ...
-;
-        DEFB 0FFH
-        DEFB 0FFH,0FFH,0FFH
-        DEFB 0FFH,0FFH,0FFH
+ALTMO:  LD   (0FFFEH),HL  ;wird von Fkt. "Y" angesprungen
+        JP   0FFFEH       ;Start alternativer Monitor im RAM
+        DEFB 0FFH         ;1 Byte frei
 ;
         ENDIF
 ;
@@ -2886,9 +2750,9 @@ V24OU8: OUT  (P08),A      ;Ausgabe an A1 (TxD)
         LD   HL,1858H 
         LD   (HL),0FFH
         LD   DE,1859H 
-        IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
+        IF MONI88
         LD   BC,0E7A7H    ;loeschen bis 0FFFFH
-        ELSE              ;alle anderen Monitor-Versionen
+        ELSE
         LD   BC,0E6A7H    ;loeschen bis 0FEFFH
         ENDIF
         LDIR 
@@ -2927,29 +2791,21 @@ L0EA5:  LDI
         RET 
 ;
 ;
-;
-        IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
+        IF MONI88
         DEFS 7,0FFH       ;Platzhalter 7 Byte
         ENDIF
-        IFDEF MONI88A     ;Monitor 10/88 - Originalversion mit Anpassungen
+        IF MONI88A
 ;
 ;
-; Funktion "X" --> AC1 ROM-Bank aufrufen (E000H bis FEFFH) - Teil 2
+; Funktion "X" --> Frieders ROM-Bank aufrufen - Teil 2
 ;
 PROGX3: OUT  (0C1H),A     ;HWT EPROM + LED
         OUT  (0C0H),A     ;NWT EPROM
         JP   0E000H       ;Programmstart Prog-X
 ;
         ENDIF
-        IFDEF MONI11      ;Monitor 10/88 - BWS-CPLD-Version 2011
+        IF MONI11 OR MONI11A
 ;
-; Funktion "8" --> PIO2-Karte: Bank 3 einschalten
-;
-        DEFB 00H,09H,38H,0DH 
-        JP   FKT8 
-;
-        ENDIF
-        IFDEF MONI11A     ;Monitor 10/88 - BWS-CPLD-Version mit Anpassungen
 ;
 ; Funktion "8" --> PIO2-Karte: Bank 3 einschalten
 ;
@@ -3105,7 +2961,7 @@ L0F6C:  LD   BC,0800H
         ADD  HL,BC 
         JR   L0F69 
 ;
-        IFDEF MONI88      ;Monitor 10/88 - Originalversion 1988
+        IF MONI88
 ;
 ;
 ; ungenutzte CRC-Routine
@@ -3134,8 +2990,8 @@ L0F6C:  LD   BC,0800H
         OUT  (P14),A      ;Modul-1: EPROM mit Basic
         JP   5FCCH        ;Sprung ins Basic-Programm
 ;
-        ENDIF             ;Monitor 10/88 - Originalversion 1988
-        IFDEF MONI88A     ;Monitor 10/88 - Originalversion mit Anpassungen
+        ENDIF
+        IF MONI88A
 ;
 ;
 ; ungenutzte CRC-Routine
@@ -3143,7 +2999,7 @@ L0F6C:  LD   BC,0800H
         DEFS 63,0FFH      ;Platzhalter 63 Byte
 ;
 ;
-; Funktion "X" --> AC1 ROM-Bank aufrufen (E000H bis FEFFH) - Teil 1
+; Funktion "X" --> Frieders ROM-Bank aufrufen - Teil 1
 ;
         DEFB 00H,09H,58H,0DH 
 PROGX1: LD   DE,8000H     ;Pointer auf EPROM + LED
@@ -3165,8 +3021,8 @@ PROGX2: LD   A,D          ;HWT EPROM
         JR   NZ,PROGX2
         JP   PROGX3       ;zum Teil 2 der Funktion
 ;
-        ENDIF             ;Monitor 10/88 - Originalversion mit Anpassungen
-        IFDEF MONI11      ;Monitor 10/88 - BWS-CPLD-Version 2011
+        ENDIF
+        IF MONI11 OR MONI11A
 ;
 ; Funktion "!" --> Farbbyte einstellen
 ;
@@ -3178,81 +3034,11 @@ PROGX2: LD   A,D          ;HWT EPROM
 ;
 ; Farb-Initialisierung des CPLD
 ;
+        IF MONI11
 FINIT:  LD   A,02H        ;Farbbyte: nach Reset = 02H
-FINIT1: PUSH AF 
-        XOR  A            ;Wert fuer Monochrom-BWS
-        LD   (COLOR),A    ;Merkzelle fuer Farbbyte im RAM schreiben
-        POP  AF 
-        LD   C,PF0        ;I/O-Adresse COLOR-BWS
-        IN   B,(C)        ;Konfigbyte COLOR-BWS lesen
-        INC  B            ;fuer COLOR-BWS ist B!=0
-        RET  Z            ;kein COLOR-BWS vorhanden --> Ende
-        DEC  B 
-        LD   D,B 
-        SET  2,D          ;Konfigbyte COLOR-BWS: Farb-RAM aktiv
-        LD   HL,1000H 
-        LD   E,(HL) 
-        OUT  (C),D        ;COLOR-BWS auf Farb-RAM umschalten
-        LD   (HL),A       ;Farbe auf 1000h setzen
-        CP   (HL)         ;ist ein Farb-RAM eingebaut?
-        OUT  (C),B        ;Konfigbyte COLOR-BWS: Text-RAM aktiv
-        LD   (HL),E       ;Zeichen auf 1000h zurueckschreiben
-        RET  NZ           ;Farbe hat nicht geklappt --> Ende
-        OUT  (C),D        ;nochmal COLOR-BWS auf Farb-RAM umschalten
-        PUSH BC 
-        LD   DE,1001H 
-        LD   BC,07FFH 
-        LDIR              ;Farbe in den restlichen BWS-RAM schreiben
-        LD   A,(HL)       ;Farbe aus 17FEh ruecklesen
-        POP  BC 
-        OUT  (C),B        ;Konfigbyte COLOR-BWS: Text-RAM aktiv
-        LD   (COLOR),A    ;Merkzelle fuer Farbbyte im RAM schreiben
-        RET 
-;
-;
-; Funktion "7" --> PIO2-Karte: Bank 2 einschalten
-;
-        DEFB 00H,09H,37H,0DH 
-        LD   A,20H        ;ehemals 10H, war falsch!!
-        OUT  (P0F),A 
-        JP   2000H        ;Programmstart von UserProg auf 2000H
-;
-;
-; Funktion "r" --> Basic-Warmstart
-;
-        DEFB 00H,09H,72H,0DH 
-        LD   A,02H
-        OUT  (P14),A      ;Modul-1: EPROM mit Basic
-        JP   5FD5H        ;Sprung ins Basic-Programm
-;
-;
-; Funktion "X" --> Programmpaket X
-;
-        DEFB 00H,09H,58H,0DH 
-        JP   JUMPX
-;
-;
-; Funktion "b" --> Basic-Kaltstart
-;
-        DEFB 09H,62H,0DH  ;die 00H wird vom letzten Befehl genutzt
-        LD   A,02H
-        OUT  (P14),A      ;Modul-1: EPROM mit Basic
-        JP   5FCCH        ;Sprung ins Basic-Programm
-;
-        ENDIF             ;Monitor 10/88 - BWS-CPLD-Version 2011
-        IFDEF MONI11A     ;Monitor 10/88 - BWS-CPLD-Version mit Anpassungen
-;
-; Funktion "!" --> Farbbyte einstellen
-;
-        DEFB 00H,09H,21H,0DH
-        LD   A,(ARG1) 
-        OR   A            ;wenn ARG1=0 ist --> Vorgabewert nehmen
-        JR   NZ,FINIT1 
-;
-;
-; Farb-Initialisierung des CPLD
-;
+        ELSE
 FINIT:  LD   A,4FH        ;Farbbyte: nach Reset = 4FH
+        ENDIF
 FINIT1: PUSH AF 
         XOR  A            ;Wert fuer Monochrom-BWS
         LD   (COLOR),A    ;Merkzelle fuer Farbbyte im RAM schreiben
@@ -3313,7 +3099,7 @@ FINIT1: PUSH AF
         OUT  (P14),A      ;Modul-1: EPROM mit Basic
         JP   5FCCH        ;Sprung ins Basic-Programm
 ;
-        ENDIF             ;Monitor 10/88 - BWS-CPLD-Version mit Anpassungen
+        ENDIF
 ;
 ;
 ; Funktion "<SPACE>" --> nix tun...
