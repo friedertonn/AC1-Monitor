@@ -2,8 +2,9 @@
 Assemblercode für den AC1-Monitor 10/88
 
 Die Datei MONI1088.MAC enthält den Assemblercode für den AC1-Monitor 10/88.
-Von diesem Monitor gibt es Anpassungen an den AC1-2010 mit COLOR-BWS-CPLD aus dem Jahr 2011.
-In den Zeilen 36 bis 39 des Assemblercodes wird festgelegt, welcher Monitor gebildet werden soll.
+Von diesem Monitor gibt es Anpassungen an den AC1-2010 mit COLOR-BWS-CPLD aus dem Jahr 2011
+sowie den picoAC1-2026.
+In den Zeilen 52 bis 56 der MAC-Datei wird festgelegt, welcher Monitor gebildet werden soll.
 Die Dokumentation des Monitors (Befehle, Unterprogramme, Speicherzellen, Steuercodes)
 steht in der Datei MONI1088.DOK
 
@@ -22,5 +23,4 @@ Das Assemblerlisting steht in der Datei MONI1088.PRN
 
 ![AC1-Monitor](https://github.com/friedertonn/AC1-Monitor/blob/main/Fotos/Monitor_10-88.png?raw=true)
 
-Volker Pohlers hat diesen und weitere AC1-Monitore disassembliert und auf
-Github zur Verfügung gestellt: https://github.com/hcddr/ac1/tree/master/monitor 
+Im Unterverzeichnis EPROM sind die Binärdateien für die oben genannten drei Varianten gespeichert.

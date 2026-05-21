@@ -1,6 +1,6 @@
 ; ************************************************************
 ; *                                                          *
-; *  MONITOR 10/88 fuer den AC 1     Version vom 12.05.2026  *
+; *  MONITOR 10/88 fuer den AC 1     Version vom 21.05.2026  *
 ; *                                                          *
 ; ************************************************************
 ;
@@ -21,7 +21,7 @@
 ; - neues Monitorkommando "X": Start von Frieders ROM-Bank
 ; - PIO2 belegt die I/O-Adressen 18H bis 1BH
 ;
-; MONI11 - Korrekturen an der BWS-CPLD-Version 2011:
+; MONI11 - Korrekturen an der Original-BWS-CPLD-Version 2011:
 ; - Fehler beim Monitorkommando "7" fuer die PIO2-Karte:
 ;   Adresse 0FD4H von 10H auf 20H korrigiert
 ; - fehlerhafter Interruptvektor fuer CTC Kanal 0
@@ -33,6 +33,18 @@
 ; - Farbbyte 0F9FH ist 4FH (= weiss auf blauem Hintergrund)
 ; - V.24-Kontrollregister (Adr. 023EH) wieder auf 02H
 ;
+; PICOAC1 - Anpassungen fuer den picoAC1-2026:
+; - Keine Nutzung der Grafiktaste: Adresse 02A9H ist FFH
+; - korrekte V.24-Baudraten fuer den Betrieb mit 2 MHz
+; - V.24-Kontrollregister (Adr. 023EH) ist 02H
+; - Backspace/DEL mit 7FH (Adr. 0323H und 0488H)
+; - RAM loeschen mit Kommando "p" von 1858H bis 0FEFFH
+; - kein Color-BWS, das Farb-Byte Adresse 181FH ist 00H
+; - Anpassung der Funktion: Alternativer Monitors starten
+;   mit dem Kommando "Y aaaa" (nur fuer picoAC1-2026)
+; - Bankumschaltung der 56K-RAM-Baenke von 2000H bis FFFFH
+;   mit den Kommandos "0" und "1" (nur fuer picoAC1-2026) 
+;
 ; ************************************************
 ; *  Wichtig: Hier muss die gewuenschte          *
 ; *           Monitorversion selektiert werden:  *
@@ -41,29 +53,33 @@ MONI88  EQU  1       ;Monitor 10/88 - Originalversion 1988
 MONI88A EQU  0       ;Monitor 10/88 - Originalversion mit Anpassungen
 MONI11  EQU  0       ;Monitor 10/88 - BWS-CPLD-Version 2011
 MONI11A EQU  0       ;Monitor 10/88 - BWS-CPLD-Version mit Anpassungen
+PICOAC1 EQU  0       ;Monitor 10/88 - Anpassungen fuer den picoAC1-2026
 ;
 ;
         PAGE 64
 ;
         IF1
-        IF MONI88
+IF MONI88
         .PRINTX 'Monitor 10/88 - Originalversion 1988'
-        ENDIF
-        IF MONI88A
+ENDIF
+IF MONI88A
         .PRINTX 'Monitor 10/88 - Originalversion mit Anpassungen'
-        ENDIF
-        IF MONI11
+ENDIF
+IF MONI11
         .PRINTX 'Monitor 10/88 - BWS-CPLD-Version 2011'
-        ENDIF
-        IF MONI11A
+ENDIF
+IF MONI11A
         .PRINTX 'Monitor 10/88 - BWS-CPLD-Version mit Anpassungen'
-        ENDIF
+ENDIF
+IF PICOAC1
+        .PRINTX 'Monitor 10/88 - Anpassungen fuer den picoAC1-2026'
+ENDIF
         .PRINTX 'PASS 1'
-        ENDIF
+ENDIF
 ;
         IF2
         .PRINTX 'PASS 2'
-        ENDIF
+ENDIF
 ;
         .CREF
         .Z80
@@ -159,9 +175,11 @@ INIT2:  LD   DE,KURPOS
 L0020:  JP   180BH        ;Sprungtabelle 180BH
 ;
 ;
-        IF MONI88 OR MONI88A
+IF MONI88 OR MONI88A
         DEFS 5,0FFH       ;Platzhalter 5 Byte
-        ELSE              ;MONI11 OR MONI11A
+ENDIF
+IF MONI11 OR MONI11A
+;
 ;
 ; Codeschnipsel zur Funktion "8"
 ; ------------------------------
@@ -169,7 +187,16 @@ L0020:  JP   180BH        ;Sprungtabelle 180BH
 FKT8:   LD   A,40H        ;Codeschnipsel zur Funktion "8"
         JP   FKT0         ;A auf Port 0FH ausgeben
 ;
-        ENDIF
+ENDIF
+IF PICOAC1
+;
+;
+; RAM von 0000H bis 0FFFH einschalten (alternativer Monitor im RAM)
+;
+ALTMO1: LD   A,2          ;wird von Fkt. "Y" angesprungen
+        JP   ALTMO
+;
+ENDIF
 ;
 ;
 ; RST 28H - nicht verwendet
@@ -225,21 +252,21 @@ INIT5:  LD   (HL),0FFH    ;HL=1800H
         LD   HL,SPTAB     ;Sprungtabelle = 0220H
         LD   DE,1802H     ;Ziel = 1802H
         LDIR 
-        IF MONI88 OR MONI88A
+IF MONI88 OR MONI88A OR PICOAC1
         CALL UPTAST       ;Taste gedrueckt?
-        ELSE              ;MONI11 OR MONI11A
-        CALL FARBIN       ;CALL Farb-Initialisierung
-        ENDIF
         JR   NZ,INIT6     ;Taste gedrueckt (nur Originalversion 1988)
         JR   INIT7 
-;
         DEFS 2,0FFH       ;Platzhalter 2 Byte
+ELSE
+        CALL FARBIN       ;CALL Farb-Initialisierung
+        JR   INIT7 
+        DEFS 4,0FFH       ;Platzhalter 4 Byte
+ENDIF
 ;
 ; NMI-Befehl, Programmunterbrechung
 ; ---------------------------------
 ;
 L0066:  JP   1817H        ;Sprungtabelle 1817H
-;
 ;
 INIT6:  CP   58H          ;Taste "X" gedrueckt?
 JUMPX:  JP   Z,PROGX      ;Sprung zum Programmpaket X
@@ -247,13 +274,18 @@ INIT7:  XOR  A
         OUT  (P14),A      ;Modul-1: Konfigurationsregister ruecksetzen
         RST  18H 
         DEFB 0CH,0DH,0FH,0FH 
-        IF MONI88 OR MONI88A
+IF MONI88 OR MONI88A
         DEFM "AC 1 * MONITOR *" 
         DEFM " U880  * (10/88)" 
-        ELSE              ;MONI11 OR MONI11A
+ENDIF
+IF MONI11 OR MONI11A
         DEFM "AC 1 * MONITOR (" 
         DEFM "10/88) * 11/2011" 
-        ENDIF
+ENDIF
+IF PICOAC1
+        DEFM "Monitor 10/88 fu"
+        DEFM "er picoAC1-2026 " 
+ENDIF
         DEFB 0DH,0DH+80H 
         JP   GETCO        ;Sprung in die Monitoreingabeschleife
 ;
@@ -351,14 +383,14 @@ NOV24:  RRCA              ;Rotiere A-Register rechts
 ; Start vom Programmpaket X
 ; -------------------------
 ;
-        IF MONI88A
+IF MONI88A
 PROGX:  JP   PROGX1       ;Sprung zu Frieders ROM-Bank
         DEFS 4,0FFH       ;Platzhalter 4 Byte
-        ELSE
+ELSE
 PROGX:  LD   A,01H 
         OUT  (P14),A      ;Modul-1: EPROM mit Programmpaket X
         JP   0E000H       ;Sprung zum Programmpaket X
-        ENDIF
+ENDIF
 ;
 ;
 ; UP 'MS 30', Zeitschleife 30 ms
@@ -610,18 +642,18 @@ SPTAB:  JP   RST08        ;Einsprungpunkt fuer RST 08H
         JP   BREAK        ;Einsprungpunkt fuer NMI 
         DEFB 0FFH,0FFH    ;Zwischenspeicher 'Inline'
         DEFM "SCH"        ;Warmstartcode
-        IF MONI88 OR MONI88A
+IF MONI88 OR MONI88A
         DEFB 0AFH         ;Warmstartcode
         DEFB 02H          ;Kommando-Code V.24 (9600 Baud)
-        ENDIF
-        IF MONI11
+ENDIF
+IF MONI11
         DEFB 00H          ;Farb-Byte (0 = kein Color-BWS)
         DEFB 43H          ;Kommando-Code V.24 (4800 Baud)
-        ENDIF
-        IF MONI11A
+ENDIF
+IF MONI11A OR PICOAC1
         DEFB 00H          ;Farb-Byte (0 = kein Color-BWS)
         DEFB 02H          ;Kommando-Code V.24 (9600 Baud)
-        ENDIF
+ENDIF
         DEFB 11H          ;I/O-Byte (Adresse 1821H)
 ;
 ;
@@ -717,7 +749,11 @@ UPTAS1: CALL UPTAS4       ;Entprellung
 ; schliessen. Die LED leuchtet bei eingeschalteter Grafiktastatur.                          
 ; Adresse 02A9 Datenbyte FF in 21 aendern. 
 ;                        
+IF MONI88 OR MONI88A OR MONI11 OR MONI11A
         CP   21H          ;21H --> Grafiktaste wird verwendet
+ELSE
+        CP   0FFH         ;Grafiktaste wird nicht verwendet
+ENDIF
         JR   C,UPTAS2     ;keine Grafik, wenn Tastencode < 21H ist
         IN   A,(P05)      ;PIO1 Port B lesen
         BIT  2,A          ;Bit 2 = Grafiktaste
@@ -753,9 +789,10 @@ UPTAS5: DEC  A
         RET               ;auf den Adressbus
 ;
 ;
-        IF MONI88 OR MONI88A
+IF MONI88 OR MONI88A
         DEFS 21,0FFH      ;Platzhalter 21 Byte
-        ELSE              ;MONI11 OR MONI11A
+ENDIF
+IF MONI11 OR MONI11A
 ;
 ; Codeschnipsel fuer Farb-Initialisierung
 ;
@@ -777,7 +814,28 @@ FARBIN: CALL FINIT        ;Farb-Initialisierung
 FKT0:   OUT  (P0F),A 
         RET 
 ;
-        ENDIF
+ENDIF
+IF PICOAC1
+        DEFB 0FFH         ;Platzhalter 1 Byte
+;
+;
+; Seitenumschaltung im RAM 2000H bis 0FFFFH (picoAC1-2026)
+;
+; Funktion "0" --> Bank 0 einschalten
+;
+        DEFB 00H,09H,30H,0DH 
+        XOR  A 
+        JR   FKT0
+;
+;
+; Funktion "1" --> Bank 1 einschalten
+;
+        DEFB 00H,09H,31H,0DH 
+        LD   A,4
+FKT0:   OUT  (P16),A
+        SRL  A            ;Rechtsschieben
+        JP   FKT1
+ENDIF
 ;
 ;
 ; Zeichensatz SCCH <--> ACC umschalten
@@ -820,11 +878,11 @@ FKT33D: LD   (HL),01H     ;nein
         EX   DE,HL        ;Kursorposition in HL, Stack in DE
         CP   1AH          ;^Z = Zeichensatz umschalten
         JR   Z,ZGUMS 
-        IF MONI88
+IF MONI88
         CP   5FH          ;Backspace/DEL mit 5FH
-        ELSE
+ELSE
         CP   7FH          ;Backspace/DEL mit 7FH
-        ENDIF
+ENDIF
         JR   Z,DELETE 
         LD   (HL),A       ;lade Zeichen auf Kursorposition
 ;
@@ -1120,11 +1178,11 @@ L047A:  RST  10H
         DEFB 06H+80H 
         RET 
 ;
-        IF MONI88
+IF MONI88
 L0487:  CP   5FH          ;Backspace/DEL mit 5FH
-        ELSE
+ELSE
 L0487:  CP   7FH          ;Backspace/DEL mit 7FH
-        ENDIF
+ENDIF
         JR   Z,L0494 
         CP   20H 
         RET  C 
@@ -1165,9 +1223,10 @@ L04B5:  INC  DE
         RET 
 ;
 ;
-        IF MONI88 OR MONI88A
+IF MONI88 OR MONI88A
         DEFS 17,0FFH      ;Platzhalter 17 Byte
-        ELSE              ;MONI11 OR MONI11A
+ELSE
+;
 ;
 ; Funktion "Y" --> alternativer Monitor im RAM
 ;
@@ -1176,9 +1235,12 @@ L04B5:  INC  DE
         LD   B,10H        ;BC = 1000H, DE = 0000H
         LDIR 
         LD   HL,16D3H     ;OUT (P16),A --> RAM einblenden
-        JP   ALTMO 
-;
-        ENDIF
+IF MONI11 OR MONI11A
+        JP   ALTMO
+ELSE
+        JP   ALTMO1       ;picoAC1-2026 --> LD A,2
+ENDIF
+ENDIF
 ;
 ;
 ; Register mit Argumenten laden
@@ -2274,26 +2336,26 @@ L0B85:  CALL L0DC9
 ;
         DEFB 0FFH         ;Platzhalter 1 Byte
 ;
-        IF MONI88 OR MONI88A
+IF MONI88 OR MONI88A
 ;
 ; UP 'Zeitschleife 18 ms' zur Tastaturentprellung
 ; -----------------------------------------------
-; (wird im Monitor 10/88 nicht verwendet, evtl. von extern?)
+; (wird im Monitor 10/88 direkt nicht verwendet, evtl. von extern?)
 ;
         PUSH BC
         LD   BC,0481H     ;Zeitkonstante fuer 18ms
         JP   MS30A
 ;
-        ELSE              ;MONI11 OR MONI11A
+ELSE
 ;
 ; die Zeitschleife gibt es im Monitor 2011 nicht mehr,
 ; dafuer steht hier der 2. Teil vom Kommando "Y"
 ;
 ALTMO:  LD   (0FFFEH),HL  ;wird von Fkt. "Y" angesprungen
         JP   0FFFEH       ;Start alternativer Monitor im RAM
-        DEFB 0FFH         ;1 Byte frei
+        DEFB 0FFH         ;Platzhalter 1 Byte
 ;
-        ENDIF
+ENDIF
 ;
 ;
 L0B97:  LD   HL,(ARG2) 
@@ -2750,11 +2812,11 @@ V24OU8: OUT  (P08),A      ;Ausgabe an A1 (TxD)
         LD   HL,1858H 
         LD   (HL),0FFH
         LD   DE,1859H 
-        IF MONI88
+IF MONI88
         LD   BC,0E7A7H    ;loeschen bis 0FFFFH
-        ELSE
+ELSE
         LD   BC,0E6A7H    ;loeschen bis 0FEFFH
-        ENDIF
+ENDIF
         LDIR 
         RST  18H 
         DEFM " Clear RAM" 
@@ -2791,10 +2853,10 @@ L0EA5:  LDI
         RET 
 ;
 ;
-        IF MONI88
+IF MONI88 OR PICOAC1
         DEFS 7,0FFH       ;Platzhalter 7 Byte
-        ENDIF
-        IF MONI88A
+ENDIF
+IF MONI88A
 ;
 ;
 ; Funktion "X" --> Frieders ROM-Bank aufrufen - Teil 2
@@ -2803,8 +2865,8 @@ PROGX3: OUT  (0C1H),A     ;HWT EPROM + LED
         OUT  (0C0H),A     ;NWT EPROM
         JP   0E000H       ;Programmstart Prog-X
 ;
-        ENDIF
-        IF MONI11 OR MONI11A
+ENDIF
+IF MONI11 OR MONI11A
 ;
 ;
 ; Funktion "8" --> PIO2-Karte: Bank 3 einschalten
@@ -2812,7 +2874,7 @@ PROGX3: OUT  (0C1H),A     ;HWT EPROM + LED
         DEFB 00H,09H,38H,0DH 
         JP   FKT8 
 ;
-        ENDIF
+ENDIF
 ;
 ;
 ; UP 'Joy', Abfrage Joystick 1
@@ -2961,37 +3023,15 @@ L0F6C:  LD   BC,0800H
         ADD  HL,BC 
         JR   L0F69 
 ;
-        IF MONI88
+IF MONI88
 ;
 ;
 ; ungenutzte CRC-Routine
 ;
         DEFS 70,0FFH      ;Platzhalter 70 Byte
 ;
-;
-; Funktion "r" --> Basic-Warmstart
-;
-        DEFB 00H,09H,72H,0DH 
-        LD   A,02H
-        OUT  (P14),A      ;Modul-1: EPROM mit Basic
-        JP   5FD5H        ;Sprung ins Basic-Programm
-;
-;
-; Funktion "X" --> Programmpaket X
-;
-        DEFB 00H,09H,58H,0DH 
-        JP   JUMPX
-;
-;
-; Funktion "b" --> Basic-Kaltstart
-;
-        DEFB 09H,62H,0DH  ;die 00H wird vom letzten Befehl genutzt
-        LD   A,02H
-        OUT  (P14),A      ;Modul-1: EPROM mit Basic
-        JP   5FCCH        ;Sprung ins Basic-Programm
-;
-        ENDIF
-        IF MONI88A
+ENDIF
+IF MONI88A
 ;
 ;
 ; ungenutzte CRC-Routine
@@ -3021,8 +3061,8 @@ PROGX2: LD   A,D          ;HWT EPROM
         JR   NZ,PROGX2
         JP   PROGX3       ;zum Teil 2 der Funktion
 ;
-        ENDIF
-        IF MONI11 OR MONI11A
+ENDIF
+IF MONI11 OR MONI11A
 ;
 ; Funktion "!" --> Farbbyte einstellen
 ;
@@ -3034,11 +3074,11 @@ PROGX2: LD   A,D          ;HWT EPROM
 ;
 ; Farb-Initialisierung des CPLD
 ;
-        IF MONI11
+IF MONI11
 FINIT:  LD   A,02H        ;Farbbyte: nach Reset = 02H
-        ELSE
+ELSE
 FINIT:  LD   A,4FH        ;Farbbyte: nach Reset = 4FH
-        ENDIF
+ENDIF
 FINIT1: PUSH AF 
         XOR  A            ;Wert fuer Monochrom-BWS
         LD   (COLOR),A    ;Merkzelle fuer Farbbyte im RAM schreiben
@@ -3076,6 +3116,26 @@ FINIT1: PUSH AF
         LD   A,20H        ;ehemals 10H, war falsch!!
         OUT  (P0F),A 
         JP   2000H        ;Programmstart von UserProg auf 2000H
+ENDIF
+IF PICOAC1
+;
+;
+; bisher ungenutzte CRC-Routine, jetzt Bankumschaltung 0/1
+;
+FKT1:   SRL  A            ;Rechtsschieben
+        OR   30H
+        RST  18H
+        DEFM "Bank"
+        DEFB 3AH+80H      ;":+80H
+        RST  10H
+        LD   A,0DH
+        RST  10H
+        RET
+;
+        DEFS 55,0FFH      ;Platzhalter 55 Byte
+;
+ENDIF
+IF MONI88 OR MONI11 OR MONI11A OR PICOAC1
 ;
 ;
 ; Funktion "r" --> Basic-Warmstart
@@ -3094,12 +3154,12 @@ FINIT1: PUSH AF
 ;
 ; Funktion "b" --> Basic-Kaltstart
 ;
-        DEFB 09H,62H,0DH  ;die 00H wird vom letzten Befehl genutzt
+        DEFB 09H,62H,0DH  ;die 00H ist vom letzten Befehl
         LD   A,02H
         OUT  (P14),A      ;Modul-1: EPROM mit Basic
         JP   5FCCH        ;Sprung ins Basic-Programm
 ;
-        ENDIF
+ENDIF
 ;
 ;
 ; Funktion "<SPACE>" --> nix tun...
